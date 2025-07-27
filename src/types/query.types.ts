@@ -130,6 +130,18 @@ export interface QueryMetadata {
 export type QuerySource = 'api' | 'web_ui' | 'mobile_app' | 'cli' | 'scheduled' | 'webhook';
 
 /**
+ * Query source enum for backward compatibility
+ */
+export enum QuerySourceEnum {
+  API = 'api',
+  WEB_UI = 'web_ui',
+  MOBILE_APP = 'mobile_app',
+  CLI = 'cli',
+  SCHEDULED = 'scheduled',
+  WEBHOOK = 'webhook'
+}
+
+/**
  * Query priority levels
  */
 export type QueryPriority = 'low' | 'normal' | 'high' | 'critical' | 'realtime';
@@ -205,6 +217,13 @@ export interface InterpretedQuery {
   
   /** Query optimization suggestions */
   optimizations: QueryOptimization[];
+  
+  /** Human-readable explanation of the interpretation */
+  explanation?: {
+    interpretation: string;
+    mcpSelection: string;
+    executionPlan: string;
+  };
 }
 
 /**
@@ -595,6 +614,32 @@ export interface DistanceCriteria {
 export type SpatialRelationship = 'within' | 'contains' | 'intersects' | 'near' | 'far';
 
 /**
+ * Individual entity extracted from query
+ */
+export interface QueryEntity {
+  /** Entity type (e.g., 'email', 'userId', 'temporal') */
+  type: string;
+  
+  /** Entity value */
+  value: any;
+  
+  /** Confidence score for this entity (0-1) */
+  confidence: number;
+  
+  /** Position in original query text */
+  position: {
+    start: number;
+    end: number;
+  };
+  
+  /** Whether entity was derived from context */
+  contextual?: boolean;
+  
+  /** Additional metadata for the entity */
+  metadata?: Record<string, any>;
+}
+
+/**
  * Extracted entities from the query
  */
 export interface QueryEntities {
@@ -618,6 +663,12 @@ export interface QueryEntities {
   
   /** Join operations with other entities */
   joins?: JoinCriteria[];
+  
+  /** All extracted entities from the query */
+  extractedEntities: QueryEntity[];
+  
+  /** Temporal context if time-based query */
+  temporal?: TemporalContext;
 }
 
 /**
@@ -1059,6 +1110,18 @@ export interface QueryOptimization {
   
   /** Optimization parameters */
   parameters: Record<string, any>;
+  
+  /** Whether to use caching for this query */
+  useCache?: boolean;
+  
+  /** Suggested database indexes to improve performance */
+  suggestedIndexes?: string[];
+  
+  /** Whether this query can be parallelized */
+  parallelizable?: boolean;
+  
+  /** Estimated query complexity */
+  estimatedComplexity?: 'low' | 'medium' | 'high';
 }
 
 /**

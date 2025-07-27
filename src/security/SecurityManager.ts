@@ -1,7 +1,7 @@
 // Enterprise Security Manager for Multi-MCP Smart Database
-import crypto from 'crypto';
-import jwt from 'jsonwebtoken';
-import bcrypt from 'bcryptjs';
+import * as crypto from 'crypto';
+import * as jwt from 'jsonwebtoken';
+import * as bcrypt from 'bcryptjs';
 import rateLimit from 'express-rate-limit';
 import { Request, Response, NextFunction } from 'express';
 import { logger } from '../utils/logger';
@@ -128,7 +128,7 @@ export class SecurityManager {
     return jwt.sign(payload, this.config.jwt.secret, {
       expiresIn: this.config.jwt.expiresIn,
       algorithm: this.config.jwt.algorithm
-    });
+    } as jwt.SignOptions);
   }
 
   /**
@@ -138,7 +138,7 @@ export class SecurityManager {
     return jwt.sign(payload, this.config.jwt.secret, {
       expiresIn: this.config.jwt.refreshExpiresIn,
       algorithm: this.config.jwt.algorithm
-    });
+    } as jwt.SignOptions);
   }
 
   /**

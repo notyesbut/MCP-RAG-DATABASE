@@ -10,7 +10,7 @@ import {
   QueryExecutionPlan,
   RAG2Config,
   MCPQueryCapability,
-  AggregationStrategy
+  QuerySource
 } from '../../types/query.types';
 
 import { NaturalLanguageParser } from './parser';
@@ -73,7 +73,7 @@ export class RAG2Controller {
       // Step 5: Aggregate results
       const finalResult = await this.aggregator.aggregateResults(
         mcpResults,
-        interpretedQuery.aggregationStrategy,
+        interpretedQuery.aggregationStrategy?.type || 'merge',
         executionPlan.executionId,
         query.raw
       );
@@ -240,11 +240,13 @@ export class RAG2Controller {
       success: false,
       duration,
       timestamp: Date.now(),
-      results: [],
-      metadata: {
-        totalRecords: 0,
-        sources: [],
-        aggregationApplied: AggregationStrategy.MERGE
+      data: {
+        primary: [],
+        metadata: {
+          totalRecords: 0,
+          sources: [],
+          aggregationApplied: 'merge'
+        }
       },
       insights: {
         interpretation: `Failed to process query: "${query.raw}"`,
@@ -464,7 +466,7 @@ export class RAG2Controller {
       metadata: {
         id: 'test',
         timestamp: Date.now(),
-        source: 'test',
+        source: 'api',
         priority: 'high'
       }
     };

@@ -8,6 +8,7 @@ import { createServer, Server } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import swaggerUi from 'swagger-ui-express';
 import swaggerJsdoc from 'swagger-jsdoc';
+import { v4 as uuidv4 } from 'uuid';
 import 'express-async-errors';
 
 // Internal imports
@@ -33,9 +34,8 @@ import { UserMCP } from '../core/specialized/user_mcp';
 import { ChatMCP } from '../core/specialized/chat_mcp';
 import { StatsMCP } from '../core/specialized/stats_mcp';
 import { LogsMCP } from '../core/specialized/logs_mcp';
-import { MCPType, MCPTier } from '../mcp/core/BaseMCP';
-import { MCPDomain } from '../types/mcp.types';
-import type { BaseMCP } from '../mcp/core/BaseMCP';
+import { MCPTier, MCPType, BaseMCP } from '../mcp/core/BaseMCP';
+import { MCPDomain, MCPConfig, MCPType as MCPTypeFromTypes } from '../types/mcp.types';
 
 // WebSocket handler
 import { setupWebSocket } from './websocket/socketHandler';
@@ -304,22 +304,141 @@ class ApiServer {
      */
     private registerMCPFactories(): void {
         // Register UserMCP factory
-        this.mcpRegistry.registerMCPFactory(MCPType.USER as any, (metadata, config) => 
-            new UserMCP('user' as MCPDomain, MCPType.USER, config) as any);
+        this.mcpRegistry.registerMCPFactory(MCPType.USER, (metadata, config) => {
+            // UserMCP expects hot/cold type from mcp.types
+            const mcpConfig = config as MCPConfig;
+            const temperatureType = metadata.tier === MCPTier.HOT ? MCPTypeFromTypes.HOT : MCPTypeFromTypes.COLD;
+            const userMCP = new UserMCP('user' as MCPDomain, temperatureType, mcpConfig);
+            return this.createMCPAdapter(userMCP, MCPType.USER, metadata);
+        });
 
         // Register ChatMCP factory
-        this.mcpRegistry.registerMCPFactory(MCPType.CHAT as any, (metadata, config) => 
-            new ChatMCP('chat' as MCPDomain, MCPType.CHAT, config) as any);
+        this.mcpRegistry.registerMCPFactory(MCPType.CHAT, (metadata, config) => {
+            // ChatMCP expects hot/cold type from mcp.types
+            const mcpConfig = config as MCPConfig;
+            const temperatureType = metadata.tier === MCPTier.HOT ? MCPTypeFromTypes.HOT : MCPTypeFromTypes.COLD;
+            const chatMCP = new ChatMCP('chat' as MCPDomain, temperatureType, mcpConfig);
+            return this.createMCPAdapter(chatMCP, MCPType.CHAT, metadata);
+        });
 
         // Register StatsMCP factory
-        this.mcpRegistry.registerMCPFactory(MCPType.STATS as any, (metadata, config) => 
-            new StatsMCP('analytics' as MCPDomain, MCPType.STATS, config) as any);
+        this.mcpRegistry.registerMCPFactory(MCPType.STATS, (metadata, config) => {
+            // StatsMCP expects hot/cold type from mcp.types
+            const mcpConfig = config as MCPConfig;
+            const temperatureType = metadata.tier === MCPTier.WARM ? MCPTypeFromTypes.COLD : MCPTypeFromTypes.HOT;
+            const statsMCP = new StatsMCP('analytics' as MCPDomain, temperatureType, mcpConfig);
+            return this.createMCPAdapter(statsMCP, MCPType.STATS, metadata);
+        });
 
         // Register LogsMCP factory
-        this.mcpRegistry.registerMCPFactory(MCPType.LOGS as any, (metadata, config) => 
-            new LogsMCP('analytics' as MCPDomain, MCPType.LOGS, config) as any);
+        this.mcpRegistry.registerMCPFactory(MCPType.LOGS, (metadata, config) => {
+            // LogsMCP expects hot/cold type from mcp.types
+            const mcpConfig = config as MCPConfig;
+            const temperatureType = metadata.tier === MCPTier.COLD ? MCPTypeFromTypes.COLD : MCPTypeFromTypes.HOT;
+            const logsMCP = new LogsMCP('analytics' as MCPDomain, temperatureType, mcpConfig);
+            return this.createMCPAdapter(logsMCP, MCPType.LOGS, metadata);
+        });
 
         logger.info('✅ All MCP factories registered successfully');
+    }
+
+    /**
+     * Create adapter to bridge specialized MCPs with MCPRegistry expectations
+     */
+    private createMCPAdapter(specializedMCP: any, type: MCPType, metadata: Partial<any>): BaseMCP {
+        // Create a wrapper that implements the BaseMCP interface expected by MCPRegistry
+        const adapter = Object.create(specializedMCP);
+        
+        // Add missing methods that MCPRegistry's BaseMCP expects
+        adapter.insert = async (data: any[], options?: any) => {
+            // Convert to DataRecord format expected by specialized MCP
+            for (const item of data) {
+                await specializedMCP.store({
+                    id: item.id || uuidv4(),
+                    data: item,
+                    domain: specializedMCP.domain,
+                    type: type.toString(),
+                    timestamp: Date.now(),
+                    metadata: options
+                });
+            }
+            return {
+                success: true,
+                data: data,
+                executionTime: 0,
+                fromCache: false,
+                mcpId: specializedMCP.metadata.id
+            };
+        };
+
+        // Map query method
+        adapter.query = async (query: any) => {
+            const result = await specializedMCP.query(query.filters || query);
+            return {
+                success: true,
+                data: result,
+                executionTime: 0,
+                fromCache: false,
+                mcpId: specializedMCP.metadata.id
+            };
+        };
+
+        // Map update method
+        adapter.update = async (id: string, data: any, options?: any) => {
+            await specializedMCP.update({ id, data, ...options });
+            return {
+                success: true,
+                data: [data],
+                executionTime: 0,
+                fromCache: false,
+                mcpId: specializedMCP.metadata.id
+            };
+        };
+
+        // Map delete method
+        adapter.delete = async (id: string, options?: any) => {
+            await specializedMCP.delete(id);
+            return {
+                success: true,
+                data: [],
+                executionTime: 0,
+                fromCache: false,
+                mcpId: specializedMCP.metadata.id
+            };
+        };
+
+        // Add createIndex if not present
+        adapter.createIndex = async (definition: any) => {
+            return {
+                success: true,
+                data: [],
+                executionTime: 0,
+                fromCache: false,
+                mcpId: specializedMCP.metadata.id
+            };
+        };
+
+        // Ensure metadata compatibility
+        adapter.getMetadata = async () => {
+            const meta = await specializedMCP.getMetadata();
+            return {
+                ...meta,
+                type: type,
+                tier: MCPTier.WARM,
+                created: new Date(meta.createdAt || Date.now()),
+                lastAccessed: new Date(meta.lastAccessed || Date.now()),
+                performance: {
+                    avgQueryTime: meta.metrics?.averageResponseTime || 0,
+                    throughput: meta.metrics?.queryThroughput || 0,
+                    cacheHitRatio: meta.metrics?.cacheHitRatio || 0,
+                    errorRate: meta.metrics?.errorRate || 0,
+                    cpuUsage: meta.metrics?.cpuUtilization || 0,
+                    memoryUsage: meta.metrics?.memoryUtilization || 0
+                }
+            };
+        };
+
+        return adapter as BaseMCP;
     }
 
     /**

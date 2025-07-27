@@ -17,6 +17,7 @@ import {
   QueryResult, 
   HealthStatus,
   MigrationPlan,
+  MCPTypeString,
   MCPType,
   MCPDomain, 
   MCPFactory,
@@ -50,13 +51,13 @@ interface RegistryConfiguration {
 interface MCPRegistryConfig extends MCPConfig {
   id: string;
   domain: MCPDomain;
-  type: MCPType;
+  type: MCPTypeString;
 }
 
 export class MCPRegistry extends EventEmitter {
   private instances: Map<string, MCPInstance> = new Map();
   private domainRouting: Map<MCPDomain, Set<string>> = new Map(); // domain -> mcpIds
-  private typeRouting: Map<MCPType, Set<string>> = new Map(); // type -> mcpIds
+  private typeRouting: Map<MCPTypeString, Set<string>> = new Map(); // type -> mcpIds
   private loadBalancer: Map<MCPDomain, number> = new Map(); // Round-robin counter
   private migrationHistory: Map<string, MigrationPlan[]> = new Map();
   private healthMonitor: NodeJS.Timeout | null = null;
@@ -105,35 +106,53 @@ export class MCPRegistry extends EventEmitter {
           lastChecked: Date.now(),
           uptime: 0,
           errorCount: 0,
-          responseTime: 0
+          responseTime: 0,
+          successRate: 100,
+          details: {
+            database: true,
+            network: true,
+            memory: true,
+            cpu: true
+          }
         },
         stats: {
-          totalQueries: 0,
-          totalWrites: 0,
-          totalReads: 0,
+          totalOperations: 0,
+          successfulOperations: 0,
+          failedOperations: 0,
           averageResponseTime: 0,
           throughput: 0,
-          errorRate: 0,
-          lastHourStats: {
-            queries: 0,
-            writes: 0,
-            reads: 0,
-            errors: 0
+          activeConnections: 0,
+          memoryUsage: 0,
+          cpuUsage: 0,
+          diskUsage: 0,
+          networkIO: {
+            bytesIn: 0,
+            bytesOut: 0
           }
         },
         mcp,
         // Implement BaseMCP interface methods
-        type: mcp.type,
+        type: mcp.getMetadata().type,
         domain: mcp.domain,
         initialize: () => mcp.initialize(),
+        store: (r) => mcp.store(r),
+        retrieve: (id) => mcp.retrieve(id),
         query: (q) => mcp.query(q),
         create: (r) => mcp.create(r),
         update: (r) => mcp.update(r),
         delete: (id) => mcp.delete(id),
+        getHealth: () => mcp.getHealth(),
         getMetrics: () => mcp.getMetrics(),
+        getLogs: async (options) => mcp.getLogs(options),
+        getConfiguration: () => mcp.getConfiguration(),
         getMetadata: () => mcp.getMetadata(),
         getCapabilities: () => mcp.getCapabilities(),
-        shutdown: () => mcp.shutdown()
+        shutdown: () => mcp.shutdown(),
+        // Additional MCPInstance properties
+        averageQueryTime: 0,
+        errorCount: 0,
+        accessCount: 0,
+        lastAccessed: Date.now()
       } as MCPInstance;
 
       this.instances.set(config.id, instance);
@@ -161,7 +180,9 @@ export class MCPRegistry extends EventEmitter {
         await this.drainMCP(mcpId);
       }
 
-      await instance.mcp.shutdown();
+      if (instance.mcp) {
+        await instance.mcp.shutdown();
+      }
       this.instances.delete(mcpId);
       this.removeFromRouting(mcpId, instance.metadata.domain, instance.metadata.type);
 
@@ -187,7 +208,7 @@ export class MCPRegistry extends EventEmitter {
         const instance = this.instances.get(mcpId)!;
         const startTime = Date.now();
         
-        const records = await instance.mcp.query(query.filters || {});
+        const records = instance.mcp ? await instance.mcp.query(query.filters || {}) : [];
         
         // Update metrics
         this.updateInstanceMetrics(mcpId, Date.now() - startTime, false);
@@ -201,7 +222,12 @@ export class MCPRegistry extends EventEmitter {
             mcpId,
             optimizationStrategy: 'standard',
             cacheHit: false,
-            indexesUsed: []
+            indexesUsed: [],
+            resourceUsage: {
+              cpu: 0,
+              memory: 0,
+              io: 0
+            }
           }
         };
         
@@ -235,13 +261,13 @@ export class MCPRegistry extends EventEmitter {
   private async createMCPInstance(config: MCPRegistryConfig): Promise<BaseMCP> {
     switch (config.domain) {
       case 'user':
-        return new UserMCP(config.domain, config.type, config);
+        return new UserMCP(config.domain, config.type as MCPType, config);
       case 'chat':
-        return new ChatMCP(config.domain, config.type, config);
+        return new ChatMCP(config.domain, config.type as MCPType, config);
       case 'stats':
-        return new StatsMCP(config.domain, config.type, config);
+        return new StatsMCP(config.domain, config.type as MCPType, config);
       case 'logs':
-        return new LogsMCP(config.domain, config.type, config);
+        return new LogsMCP(config.domain, config.type as MCPType, config);
       default:
         // Create a generic MCP for unknown domains
         throw new Error(`Unknown MCP domain: ${config.domain}`);
@@ -290,8 +316,8 @@ export class MCPRegistry extends EventEmitter {
     // Weight by inverse of average query time and error rate
     const weights = mcpIds.map(mcpId => {
       const instance = this.instances.get(mcpId)!;
-      const queryTime = Math.max(instance.averageQueryTime, 1);
-      const errorRate = instance.errorCount / Math.max(instance.accessCount, 1);
+      const queryTime = Math.max(instance.averageQueryTime || 1, 1);
+      const errorRate = (instance.errorCount || 0) / Math.max(instance.accessCount || 1, 1);
       return (1 / queryTime) * (1 - errorRate);
     });
 
@@ -312,10 +338,11 @@ export class MCPRegistry extends EventEmitter {
   private leastLoadedSelection(mcpIds: string[]): string[] {
     const loadMetrics = mcpIds.map(async mcpId => {
       const instance = this.instances.get(mcpId)!;
+      if (!instance.mcp) return { mcpId, load: Infinity };
       const health = await instance.mcp.getHealth();
       return {
         mcpId,
-        load: health.cpuUsage + health.memoryUsage + (instance.averageQueryTime / 1000)
+        load: health.cpuUsage + health.memoryUsage + ((instance.averageQueryTime || 0) / 1000)
       };
     });
 
@@ -331,9 +358,9 @@ export class MCPRegistry extends EventEmitter {
     const oneHour = 3600000;
 
     for (const [mcpId, instance] of this.instances) {
-      const accessFrequency = instance.accessCount / ((now - instance.lastAccessed) / oneHour);
+      const accessFrequency = (instance.accessCount || 0) / ((now - (instance.lastAccessed || now)) / oneHour);
       const currentType = instance.metadata.type;
-      let targetType: MCPType = currentType;
+      let targetType: MCPTypeString = currentType;
 
       // Determine target type based on access frequency
       if (accessFrequency >= this.configuration.hotThreshold) {
@@ -349,7 +376,7 @@ export class MCPRegistry extends EventEmitter {
     }
   }
 
-  private async migrateMCP(mcpId: string, targetType: MCPType): Promise<boolean> {
+  private async migrateMCP(mcpId: string, targetType: MCPTypeString): Promise<boolean> {
     const instance = this.instances.get(mcpId);
     if (!instance) return false;
 
@@ -427,7 +454,7 @@ export class MCPRegistry extends EventEmitter {
   }
 
   // Routing Management
-  private updateRouting(mcpId: string, domain: MCPDomain, type: MCPType): void {
+  private updateRouting(mcpId: string, domain: MCPDomain, type: MCPTypeString): void {
     // Domain routing
     if (!this.domainRouting.has(domain)) {
       this.domainRouting.set(domain, new Set());
@@ -441,7 +468,7 @@ export class MCPRegistry extends EventEmitter {
     this.typeRouting.get(type)!.add(mcpId);
   }
 
-  private removeFromRouting(mcpId: string, domain: MCPDomain, type: MCPType): void {
+  private removeFromRouting(mcpId: string, domain: MCPDomain, type: MCPTypeString): void {
     this.domainRouting.get(domain)?.delete(mcpId);
     this.typeRouting.get(type)?.delete(mcpId);
   }
@@ -456,21 +483,26 @@ export class MCPRegistry extends EventEmitter {
   private async performHealthChecks(): Promise<void> {
     for (const [mcpId, instance] of this.instances) {
       try {
-        const health = await instance.mcp.getHealth();
-        instance.isHealthy = this.evaluateHealth(health);
+        if (instance.mcp) {
+          const health = await instance.mcp.getHealth();
+          instance.health = {
+            ...instance.health,
+            status: this.evaluateHealth(health as any) ? 'healthy' : 'unhealthy'
+          };
+        }
         
-        if (!instance.isHealthy) {
-          this.emit('mcp:unhealthy', { mcpId, health });
+        if (instance.health.status !== 'healthy') {
+          this.emit('mcp:unhealthy', { mcpId, health: instance.health });
           await this.handleUnhealthyMCP(mcpId);
         }
       } catch (error) {
-        instance.isHealthy = false;
+        instance.health.status = 'unhealthy';
         this.emit('mcp:health-check-failed', { mcpId, error });
       }
     }
   }
 
-  private evaluateHealth(health: HealthStatus): boolean {
+  private evaluateHealth(health: { cpuUsage: number; memoryUsage: number }): boolean {
     // Define health criteria
     const maxCpuUsage = 90; // 90%
     const maxMemoryUsage = 90; // 90%
@@ -491,7 +523,7 @@ export class MCPRegistry extends EventEmitter {
       await instance.mcp.shutdown();
       await instance.mcp.initialize();
       
-      instance.isHealthy = true;
+      instance.health.status = 'healthy';
       this.updateRouting(mcpId, instance.metadata.domain, instance.metadata.type);
       this.emit('mcp:recovered', { mcpId });
       
@@ -504,12 +536,14 @@ export class MCPRegistry extends EventEmitter {
 
   private async createReplacementMCP(failedMcpId: string): Promise<void> {
     const failedInstance = this.instances.get(failedMcpId);
-    if (!failedInstance) return;
+    if (!failedInstance || !failedInstance.mcp) return;
 
     const config = failedInstance.mcp.getConfiguration();
-    const newConfig: MCPConfig = {
+    const newConfig: MCPRegistryConfig = {
       ...config,
-      id: `${config.id}-replacement-${Date.now()}`
+      id: `${failedMcpId}-replacement-${Date.now()}`,
+      domain: config.domain || 'general',
+      type: config.type || 'hot'
     };
 
     try {
@@ -545,7 +579,7 @@ export class MCPRegistry extends EventEmitter {
       instance.errorCount++;
     } else {
       // Update average query time
-      instance.averageQueryTime = (instance.averageQueryTime + queryTime) / 2;
+      instance.averageQueryTime = ((instance.averageQueryTime || 0) + queryTime) / 2;
     }
   }
 
@@ -579,7 +613,7 @@ export class MCPRegistry extends EventEmitter {
       .filter(metadata => metadata !== undefined) as MCPMetadata[];
   }
 
-  public getMCPsByType(type: MCPType): MCPMetadata[] {
+  public getMCPsByType(type: MCPTypeString): MCPMetadata[] {
     const mcpIds = this.typeRouting.get(type) || new Set();
     return Array.from(mcpIds)
       .map(mcpId => this.instances.get(mcpId)?.metadata)
@@ -589,7 +623,7 @@ export class MCPRegistry extends EventEmitter {
   public getSystemMetrics(): MCPStats {
     const instances = Array.from(this.instances.values());
     const total = instances.length;
-    const healthy = instances.filter(i => i.isHealthy).length;
+    const healthy = instances.filter(i => i.health.status === 'healthy').length;
     const hot = instances.filter(i => i.metadata.type === 'hot').length;
     const cold = instances.filter(i => i.metadata.type === 'cold').length;
     
@@ -601,15 +635,17 @@ export class MCPRegistry extends EventEmitter {
     let totalStorageUsed = 0;
 
     for (const instance of instances) {
-      totalQueries += instance.accessCount;
-      totalQueryTime += instance.averageQueryTime * instance.accessCount;
-      totalErrors += instance.errorCount;
-      const health = instance.mcp.getHealth();
-      Promise.resolve(health).then(h => {
-        totalMemoryUsage += h.memoryUsage;
-        totalCpuUsage += h.cpuUsage;
-        totalStorageUsed += h.diskUsage;
-      });
+      totalQueries += instance.accessCount || 0;
+      totalQueryTime += (instance.averageQueryTime || 0) * (instance.accessCount || 0);
+      totalErrors += instance.errorCount || 0;
+      if (instance.mcp) {
+        const health = instance.mcp.getHealth();
+        Promise.resolve(health).then(h => {
+          totalMemoryUsage += h.memoryUsage;
+          totalCpuUsage += h.cpuUsage;
+          totalStorageUsed += h.diskUsage;
+        });
+      }
     }
 
     return {
@@ -628,7 +664,7 @@ export class MCPRegistry extends EventEmitter {
     };
   }
 
-  public getLogs(options: { limit?: number; level?: string; }): LogEntry[] {
+  public async getLogs(options: { limit?: number; level?: string; }): Promise<LogEntry[]> {
     return [];
   }
 

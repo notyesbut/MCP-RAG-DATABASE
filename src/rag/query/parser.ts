@@ -3,7 +3,21 @@
  * Converts human language to structured queries - No more SQL!
  */
 
-import { InterpretedQuery, QueryIntent, QueryEntities, QueryFilter, QueryContext, QueryWarning, QueryLearningData, DataType, TemporalContext, QueryEntity } from '../../types/query.types';
+import { 
+  InterpretedQuery, 
+  QueryIntent, 
+  QueryEntities, 
+  QueryFilter, 
+  QueryContext, 
+  QueryWarning, 
+  DataType, 
+  TemporalContext, 
+  QueryEntity,
+  QueryIntentDetails,
+  AggregationStrategy,
+  QueryOptimization,
+  NaturalQuery
+} from '../../types/query.types';
 
 /**
  * Learning data for query patterns
@@ -16,6 +30,17 @@ interface QueryLearningData {
   lastUsed: number;
   intents: QueryIntent[];
   entities: string[];
+}
+
+/**
+ * Aggregation strategy enum for backward compatibility
+ */
+enum AggregationStrategyEnum {
+  MERGE = 'merge',
+  STATISTICAL_SUMMARY = 'statistical_summary',
+  CROSS_REFERENCE = 'cross_reference',
+  TIME_ORDERED = 'time_ordered',
+  PRIORITIZE_HOT = 'prioritize_hot'
 }
 
 /**
@@ -260,14 +285,37 @@ export class NaturalLanguageParser {
     this.updateLearningData(text, intents, entities, sessionId);
     this.updateConversationContext(sessionId, query, intents, entities);
 
-    return {
-      intents: intents.map(i => i.type),
+    // Build the complete InterpretedQuery object
+    const interpretedQuery: InterpretedQuery = {
+      originalQuery: query as NaturalQuery,
+      intents: intents.map(intent => ({
+        type: intent.type,
+        confidence: intent.confidence,
+        parameters: intent.parameters || {}
+      } as QueryIntentDetails)),
       entities,
-      targetMCPs,
+      targetMCPs: targetMCPs.map(mcp => mcp.mcpId),
+      executionPlan: {
+        executionId: `exec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        phases: [],
+        estimatedTime: targetMCPs.reduce((sum, mcp) => sum + mcp.estimatedLatency, 0),
+        resourceRequirements: {
+          cpu: 50,
+          memory: 200,
+          diskIO: 100,
+          networkBandwidth: 50,
+          dataSize: 1000
+        },
+        optimizations: []
+      },
       aggregationStrategy,
+      confidence: intents[0]?.confidence || 0.5,
+      alternatives: [],
       optimizations: [optimizations],
       explanation
     };
+    
+    return interpretedQuery;
   }
 
   /**
@@ -815,7 +863,7 @@ export class NaturalLanguageParser {
 
     const dataType = entities.dataType;
     const temporal = entities.temporal;
-    const primaryIntent = intents[0]?.type;
+    const primaryIntentForMCP = intents[0]?.type;
 
     // Determine primary MCPs based on data type
     switch (dataType) {
@@ -874,7 +922,7 @@ export class NaturalLanguageParser {
     }
 
     // Add cross-reference MCPs for complex queries
-    if (primaryIntent === QueryIntent.ANALYZE || primaryIntent === QueryIntent.COMPARE) {
+    if (primaryIntentForMCP === QueryIntent.ANALYZE || primaryIntentForMCP === QueryIntent.COMPARE) {
       mcps.push({
         mcpId: 'analytics-mcp',
         type: 'hot',
@@ -894,26 +942,65 @@ export class NaturalLanguageParser {
     intents: Array<{ type: QueryIntent; confidence: number }>,
     entities: QueryEntities
   ): AggregationStrategy {
-    const primaryIntent = intents[0]?.type;
+    const primaryIntentForAgg = intents[0]?.type;
     const hasMultipleMCPs = entities.extractedEntities.length > 2;
 
+    // Build aggregation strategy based on intent type
+    const strategyType = this.determineAggregationType(primaryIntentForAgg, hasMultipleMCPs, entities);
+    const mergeStrategy = this.determineMergeStrategy(primaryIntentForAgg, entities);
+    
+    return {
+      type: strategyType,
+      mergeStrategy: mergeStrategy,
+      conflictResolution: 'first_wins',
+      transformations: []
+    };
+  }
+  
+  /**
+   * Determine aggregation type based on query characteristics
+   */
+  private determineAggregationType(
+    primaryIntent: QueryIntent | undefined,
+    hasMultipleMCPs: boolean,
+    entities: QueryEntities
+  ): 'merge' | 'union' | 'intersection' | 'difference' | 'custom' {
+
     if (primaryIntent === QueryIntent.COUNT || primaryIntent === QueryIntent.AGGREGATE) {
-      return AggregationStrategy.STATISTICAL_SUMMARY;
+      return 'custom'; // For statistical operations
     }
 
     if (primaryIntent === QueryIntent.SEARCH && hasMultipleMCPs) {
-      return AggregationStrategy.MERGE;
-    }
-
-    if (entities.temporal === TemporalContext.RECENT || entities.temporal === TemporalContext.TODAY) {
-      return AggregationStrategy.PRIORITIZE_HOT;
+      return 'merge';
     }
 
     if (primaryIntent === QueryIntent.ANALYZE || primaryIntent === QueryIntent.COMPARE) {
-      return AggregationStrategy.CROSS_REFERENCE;
+      return 'intersection'; // For cross-reference analysis
     }
 
-    return AggregationStrategy.MERGE; // Default strategy
+    return 'merge'; // Default type
+  }
+  
+  /**
+   * Determine merge strategy based on query characteristics
+   */
+  private determineMergeStrategy(
+    primaryIntent: QueryIntent | undefined,
+    entities: QueryEntities
+  ): 'append' | 'merge_by_key' | 'replace' | 'upsert' | 'custom' {
+    if (primaryIntent === QueryIntent.COUNT || primaryIntent === QueryIntent.AGGREGATE) {
+      return 'custom'; // Statistical summary
+    }
+
+    if (entities.temporal === TemporalContext.RECENT || entities.temporal === TemporalContext.TODAY) {
+      return 'append'; // Time-ordered append
+    }
+
+    if (primaryIntent === QueryIntent.ANALYZE || primaryIntent === QueryIntent.COMPARE) {
+      return 'merge_by_key'; // Cross-reference by key
+    }
+
+    return 'append'; // Default strategy
   }
 
   /**
@@ -922,21 +1009,27 @@ export class NaturalLanguageParser {
   private generateOptimizationHints(
     intents: Array<{ type: QueryIntent; confidence: number }>,
     entities: QueryEntities
-  ): {
-    useCache: boolean;
-    parallelizable: boolean;
-    estimatedComplexity: 'low' | 'medium' | 'high';
-    suggestedIndexes?: string[];
-  } {
-    const primaryIntent = intents[0]?.type;
+  ): QueryOptimization {
+    const primaryIntentForOpt = intents[0]?.type;
     const entityCount = entities.extractedEntities.length;
     
-    return {
-      useCache: [QueryIntent.RETRIEVE, QueryIntent.SEARCH, QueryIntent.COUNT].includes(primaryIntent!),
-      parallelizable: entityCount > 1 && primaryIntent !== QueryIntent.UPDATE,
-      estimatedComplexity: entityCount > 3 ? 'high' : entityCount > 1 ? 'medium' : 'low',
-      suggestedIndexes: this.suggestIndexes(entities)
+    const optimization: QueryOptimization = {
+      type: 'query_rewrite',
+      description: `Optimize ${primaryIntentForOpt} query with ${entityCount} entities`,
+      expectedImprovement: this.calculateExpectedImprovement(primaryIntentForOpt!, entityCount),
+      complexity: entityCount > 3 ? 'high' : entityCount > 1 ? 'medium' : 'low',
+      autoApplicable: true,
+      parameters: {
+        intent: primaryIntentForOpt,
+        entityCount
+      },
+      useCache: [QueryIntent.RETRIEVE, QueryIntent.SEARCH, QueryIntent.COUNT].includes(primaryIntentForOpt!),
+      suggestedIndexes: this.suggestIndexes(entities),
+      parallelizable: entityCount > 1 && primaryIntentForOpt !== QueryIntent.UPDATE,
+      estimatedComplexity: entityCount > 3 ? 'high' : entityCount > 1 ? 'medium' : 'low'
     };
+    
+    return optimization;
   }
 
   /**
@@ -967,12 +1060,12 @@ export class NaturalLanguageParser {
     mcpSelection: string;
     executionPlan: string;
   } {
-    const primaryIntent = intents[0]?.type || 'retrieve';
+    const primaryIntentForExplain = intents[0]?.type || 'retrieve';
     const dataType = entities.dataType;
     const mcpNames = mcps.map(m => m.mcpId).join(', ');
     
     return {
-      interpretation: `Interpreted "${originalText}" as: ${primaryIntent} ${dataType} with ${entities.extractedEntities.length} filters`,
+      interpretation: `Interpreted "${originalText}" as: ${primaryIntentForExplain} ${dataType} with ${entities.extractedEntities.length} filters`,
       mcpSelection: `Selected MCPs: ${mcpNames} based on data type and access patterns`,
       executionPlan: `Will query ${mcps.length} MCPs in ${mcps.some(m => m.priority === mcps[0].priority) ? 'parallel' : 'sequence'} and ${entities.dataType === DataType.LOGS ? 'merge' : 'aggregate'} results`
     };
@@ -1336,8 +1429,64 @@ export class NaturalLanguageParser {
     };
   }
 
-  private updateLearningData(text: string, intents: any[], entities: any, sessionId: string): void {}
-  private updateConversationContext(sessionId: string, query: any, intents: any[], entities: any): void {}
-  private generateDetailedExplanation(text: string, intents: any[], entities: any, targetMCPs: any[]): any {}
-  private generateOptimizationHints(intents: any[], entities: any): any {}
+  /**
+   * Calculate expected performance improvement
+   */
+  private calculateExpectedImprovement(intent: QueryIntent, entityCount: number): number {
+    const baseImprovement = {
+      [QueryIntent.RETRIEVE]: 0.3,
+      [QueryIntent.SEARCH]: 0.4,
+      [QueryIntent.AGGREGATE]: 0.5,
+      [QueryIntent.COUNT]: 0.2,
+      [QueryIntent.FILTER]: 0.3,
+      [QueryIntent.ANALYZE]: 0.6,
+      [QueryIntent.COMPARE]: 0.5,
+      [QueryIntent.UPDATE]: 0.1,
+      [QueryIntent.DELETE]: 0.1
+    };
+    
+    const improvement = baseImprovement[intent] || 0.2;
+    // Reduce improvement for complex queries
+    return improvement * (1 - entityCount * 0.05);
+  }
+  
+  private updateLearningData(text: string, intents: any[], entities: any, sessionId: string): void {
+    // Implementation for updating learning data
+    const pattern = this.extractQueryPattern(text);
+    const learningData = this.learningData.get(pattern) || {
+      pattern,
+      frequency: 0,
+      successRate: 0.8,
+      avgConfidence: 0,
+      lastUsed: Date.now(),
+      intents: [],
+      entities: []
+    };
+    
+    learningData.frequency++;
+    learningData.lastUsed = Date.now();
+    learningData.intents = intents.map(i => i.type);
+    learningData.avgConfidence = intents.reduce((sum, i) => sum + i.confidence, 0) / intents.length;
+    
+    this.learningData.set(pattern, learningData);
+  }
+  
+  private updateConversationContext(sessionId: string, query: any, intents: any[], entities: any): void {
+    // Implementation for updating conversation context
+    const context = this.contextCache.get(sessionId) || this.loadConversationContext(sessionId);
+    
+    context.previousQueries.push(query.raw);
+    if (context.previousQueries.length > 10) {
+      context.previousQueries.shift();
+    }
+    
+    context.previousIntents = intents.map(i => i.type);
+    
+    // Update context entities
+    entities.extractedEntities.forEach((entity: QueryEntity) => {
+      context.contextEntities.set(entity.type, entity.value);
+    });
+    
+    this.contextCache.set(sessionId, context);
+  }
 }

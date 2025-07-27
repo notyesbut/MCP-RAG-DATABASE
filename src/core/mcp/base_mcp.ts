@@ -64,7 +64,10 @@ export abstract class BaseMCP extends EventEmitter {
         connectionPoolSize: config.connectionPoolSize || 10,
         queryTimeout: config.queryTimeout || 30000,
         backupFrequency: config.backupFrequency || 24,
-        replicationFactor: config.replicationFactor || 1
+        encryptionEnabled: config.encryptionEnabled || false,
+        autoIndexing: config.autoIndexing || false,
+        consistencyLevel: config.consistencyLevel || 'eventual',
+        customProperties: config.customProperties || {}
       },
       metrics: {
         averageResponseTime: 0,
@@ -83,8 +86,12 @@ export abstract class BaseMCP extends EventEmitter {
         activeConnections: 0,
         successfulOperations: 0,
         failedOperations: 0,
-        totalOperations: 0
-      }
+        totalOperations: 0,
+        lastUpdated: Date.now()
+      },
+      migrationHistory: [],
+      relatedMCPs: [],
+      tags: []
     };
 
     this.config = {
@@ -95,7 +102,11 @@ export abstract class BaseMCP extends EventEmitter {
       cacheSize: config.cacheSize || 50,
       connectionPoolSize: config.connectionPoolSize || 10,
       queryTimeout: config.queryTimeout || 30000,
-      backupFrequency: config.backupFrequency || 24
+      backupFrequency: config.backupFrequency || 24,
+      encryptionEnabled: config.encryptionEnabled || false,
+      autoIndexing: config.autoIndexing || false,
+      consistencyLevel: config.consistencyLevel || 'eventual',
+      customProperties: config.customProperties || {}
     };
 
     this.capabilities = this.defineCapabilities();
@@ -508,6 +519,11 @@ export abstract class BaseMCP extends EventEmitter {
     return this.store(record);
   }
 
+  public async create(record: DataRecord): Promise<boolean> {
+    // Create is essentially a store operation for new records
+    return this.store(record);
+  }
+
   public async shutdown(): Promise<void> {
     // Clean up resources
     this.metadata.healthStatus = 'unhealthy';
@@ -524,12 +540,24 @@ export abstract class BaseMCP extends EventEmitter {
     }
     
     // Handle MCPType enum values
-    if (type === MCPType.HOT || type === 'hot') {
+    if (type === MCPType.HOT) {
       return 'hot';
     }
+    if (type === MCPType.COLD) {
+      return 'cold';
+    }
     
-    // Default to 'cold' for all other types
-    return 'cold';
+    // For domain-based types, determine hot/cold based on the domain
+    switch (type) {
+      case MCPType.USER:
+      case MCPType.CHAT:
+        return 'hot'; // User and chat data are frequently accessed
+      case MCPType.STATS:
+      case MCPType.LOGS:
+        return 'cold'; // Stats and logs are less frequently accessed
+      default:
+        return 'cold'; // Default to cold for unknown types
+    }
   }
 
   private determinePerformanceTier(type: MCPTypeString): MCPPerformanceTier {

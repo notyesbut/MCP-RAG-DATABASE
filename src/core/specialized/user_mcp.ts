@@ -45,20 +45,27 @@ export class UserMCP extends BaseMCP {
       maxRecords: 50000, // Users typically don't scale as high as other data
       maxSize: 1024 * 1024 * 50, // 50MB
       compressionEnabled: false, // User data needs fast access
-      backupStrategy: 'realtime', // Critical data
+      backupFrequency: 1, // Critical data - backup every hour
       replicationFactor: 2, // Important for redundancy
-      shardingStrategy: 'hash',
       ...config
     });
   }
 
   protected defineCapabilities(): MCPCapabilities {
     return {
-      supportedDataTypes: ['user'],
-      supportedQueryTypes: ['id', 'email', 'token', 'permission'],
-      isTemporal: false,
-      isVolatile: false,
-      isVersioned: true,
+      queryTypes: ['select', 'insert', 'update', 'delete', 'search'],
+      dataTypes: ['user', 'string', 'object', 'array'],
+      maxConnections: 100,
+      consistencyLevels: ['strong', 'eventual'],
+      transactionSupport: true,
+      backupSupport: true,
+      replicationSupport: true,
+      encryptionSupport: true,
+      compressionSupport: false,
+      fullTextSearch: true,
+      geospatialSupport: false,
+      vectorSearch: false,
+      streamingSupport: false
     };
   }
 
@@ -478,29 +485,64 @@ export class UserMCP extends BaseMCP {
     return this.getUserAnalytics();
   }
 
-  async insert(data: any[], options?: any): Promise<any> {
-    for (const item of data) {
-      await this.storeUser(item);
+  async getUserAnalytics(): Promise<any> {
+    const totalUsers = this.records.size;
+    const activeUsers = Array.from(this.records.values())
+      .filter(r => {
+        const user = r.data as UserRecord;
+        return user.authentication?.lastLogin && 
+               (Date.now() - user.authentication.lastLogin) < 30 * 24 * 60 * 60 * 1000; // 30 days
+      }).length;
+    
+    const permissionStats: Record<string, number> = {};
+    for (const [permission, userIds] of this.permissionIndex) {
+      permissionStats[permission] = userIds.size;
     }
-    return { success: true };
+
+    return {
+      totalUsers,
+      activeUsers,
+      inactiveUsers: totalUsers - activeUsers,
+      permissionDistribution: permissionStats,
+      averagePermissionsPerUser: Object.values(permissionStats).reduce((a, b) => a + b, 0) / totalUsers
+    };
   }
 
-  async query(query: any): Promise<any> {
-    if (query.id) {
-      return this.getUserById(query.id);
+  // Override query method to properly implement the interface
+  async query(filters: Record<string, any>): Promise<DataRecord[]> {
+    const results: DataRecord[] = [];
+    
+    // Handle different filter types
+    if (filters.id) {
+      const user = await this.getUserById(filters.id);
+      if (user) {
+        results.push({
+          id: user.userId,
+          domain: 'user',
+          type: 'user',
+          timestamp: Date.now(),
+          data: user,
+          metadata: user.metadata
+        });
+      }
+    } else if (filters.email) {
+      const user = await this.getUserByEmail(filters.email);
+      if (user) {
+        results.push({
+          id: user.userId,
+          domain: 'user',
+          type: 'user',
+          timestamp: Date.now(),
+          data: user,
+          metadata: user.metadata
+        });
+      }
+    } else {
+      // Return all users if no specific filter
+      return super.query(filters);
     }
-    if (query.email) {
-      return this.getUserByEmail(query.email);
-    }
-    return null;
-  }
-
-  async update(id: string, data: any, options?: any): Promise<any> {
-    return this.updateUser(id, data);
-  }
-
-  async delete(id: string, options?: any): Promise<any> {
-    return this.deleteUser(id);
+    
+    return results;
   }
 
   async createIndex(definition: any): Promise<any> {

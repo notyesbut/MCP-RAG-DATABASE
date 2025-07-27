@@ -6,14 +6,9 @@
  * and provides a single import location for all types.
  */
 
-// Core MCP Types
-export * from './mcp.types';
-export * from './query.types';
-export * from './registry.types';
-
-// Re-export commonly used types for convenience
-export type {
-  // Core MCP Types
+// Core MCP Types - using specific exports to avoid conflicts
+export {
+  // Export only types that actually exist in mcp.types.ts
   MCPType,
   MCPDomain,
   MCPMetadata,
@@ -26,11 +21,50 @@ export type {
   IndexStrategy,
   MigrationStatus,
   MCPQueryResult,
-  QueryError as MCPQueryError
+  QueryError as MCPQueryError,
+  MCPTypeGuards,
+  DataRecord,
+  MCPInstance,
+  MCPTypeString,
+  // Additional types that exist in mcp.types.ts
+  AccessPattern,
+  AccessPatternType,
+  BaseMCP,
+  ComplianceContext,
+  ConstraintDefinition,
+  DataClassification,
+  DataClassificationType,
+  ExtendedMCPConfiguration,
+  ExtendedMCPMetadata,
+  FieldDefinition,
+  GeographicContext as MCPGeographicContext,
+  HealthStatus,
+  IndexDefinition,
+  LogEntry,
+  MCPConfig,
+  MCPCreationOptions,
+  MCPFactory,
+  MCPHealth,
+  MCPQuery,
+  MCPRegistryConfig,
+  MCPSchema,
+  MCPStats,
+  MCPStatus,
+  MCPTier,
+  MigrationPlan,
+  MigrationRecord,
+  MigrationStep,
+  PerformanceContext,
+  PerformanceMetrics,
+  QueryResult as MCPQueryResultBase,
+  RedundancyContext,
+  RoutingDecision,
+  RoutingExecutionStep,
+  SecurityContext
 } from './mcp.types';
 
-export type {
-  // Query Types
+export {
+  // Export only types that actually exist in query.types.ts
   NaturalQuery,
   InterpretedQuery,
   QueryIntent,
@@ -58,15 +92,66 @@ export type {
   JoinCriteria,
   TimeGranularity,
   RelativeTime,
-  AccessPatternType,
+  AccessPatternType as QueryAccessPatternType,
   OptimizationType,
   QueryError,
   QueryWarning,
-  QueryPerformanceMetrics
+  QueryPerformanceMetrics,
+  QueryTypeGuards,
+  RAG2Config,
+  QueryResult,
+  QueryExecutionMetadata,
+  MCPExecutionResult,
+  CacheHitInfo,
+  QueryExplanation,
+  CachingStrategy,
+  QueryIntentDetails,
+  StepType,
+  ResourceRequirements,
+  ResourceUsage,
+  OptimizationStrategy,
+  MergeStrategy,
+  ConflictResolution,
+  TransformationType,
+  QueryOptimization,
+  DataType,
+  TemporalContext,
+  QuerySourceEnum,
+  // Additional types that exist in query.types.ts
+  GeographicContext,
+  UserQueryPattern,
+  TemporalIntent,
+  SpatialIntent,
+  QueryEntity,
+  ExecutionStep,
+  DataAccessPattern,
+  LocalityPattern,
+  TemporalPattern,
+  AccessFrequency,
+  ParallelizationPlan,
+  ParallelExecutionGroup,
+  AggregationStrategy,
+  AggregationType,
+  ResultTransformation,
+  InterpretationStep,
+  ExecutionStepExplanation,
+  MCPSelectionReasoning,
+  OptimizationDecision,
+  TimeRange,
+  SpatialRelationship,
+  GeographicBoundary,
+  DistanceCriteria,
+  JoinCondition,
+  CacheLevel,
+  IndexUsagePlan,
+  MCPQueryCapability,
+  QueryExecutionPhase,
+  MCPQueryFragment,
+  MCPResult
 } from './query.types';
 
-export type {
-  // Registry Types
+export {
+  // Export only types that actually exist in registry.types.ts
   MCPRegistry,
   RegisteredMCP,
   RegistryConfiguration,
@@ -83,7 +168,7 @@ export type {
   StatsPeriod,
   BackupInfo,
   BackupSchedule,
-  RetentionPolicy,
+  RetentionPolicy as RegistryRetentionPolicy,
   AlertSeverity,
   AlertFrequency,
   RegistryEventType,
@@ -93,13 +178,40 @@ export type {
   LoadBalancingConfig,
   CircuitBreakerConfig,
   ConnectionPoolInfo,
-  ConnectionPoolStats
+  ConnectionPoolStats,
+  RegistryTypeGuards,
+  // Additional types that exist in registry.types.ts
+  AccessControlPolicy,
+  AlertChannel,
+  AlertCondition,
+  AlertRule,
+  AlertingConfig,
+  AuthorizationScheme,
+  BackupEncryption,
+  CacheMetrics,
+  ConflictResolutionStrategy,
+  ConsistencyLevel as RegistryConsistencyLevel,
+  ConsistencyRequirements,
+  CustomHealthCheck,
+  DataTransferMetrics,
+  EscalationPolicy,
+  EscalationStep,
+  HealthCheckEndpoint,
+  HealthMonitoringConfig,
+  KeyManagement,
+  PolicyCondition,
+  RateLimitingConfig,
+  RegistryEventHandler,
+  RegistrySecurity,
+  ResourceUtilizationMetrics,
+  ResponseValidation,
+  ServiceDiscoveryInfo,
+  TLSConfig,
+  WeightFactor
 } from './registry.types';
 
-// Type guard exports for runtime type checking
-export { MCPTypeGuards } from './mcp.types';
-export { QueryTypeGuards } from './query.types';
-export { RegistryTypeGuards } from './registry.types';
+// Type guard exports for runtime type checking are already included above
+
 
 /**
  * Common utility types used across the system

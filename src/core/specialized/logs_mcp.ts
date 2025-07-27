@@ -4,7 +4,7 @@
  */
 
 import { BaseMCP } from '../mcp/base_mcp';
-import { MCPConfig, DataRecord, MCPType, MCPDomain } from '../../types/mcp.types';
+import { MCPConfig, DataRecord, MCPType, MCPDomain, ConsistencyLevel } from '../../types/mcp.types';
 
 interface LogData {
   id: string;
@@ -70,11 +70,19 @@ export class LogsMCP extends BaseMCP {
 
   protected defineCapabilities() {
     return {
-      supportedDataTypes: ['log'],
-      supportedQueryTypes: ['level', 'source', 'service', 'host', 'time', 'context', 'tag', 'error'],
-      isTemporal: true,
-      isVolatile: true,
-      isVersioned: false,
+      queryTypes: ['select', 'insert', 'delete', 'search'] as ('select' | 'insert' | 'update' | 'delete' | 'aggregate' | 'search')[],
+      dataTypes: ['string', 'number', 'object', 'array'],
+      maxConnections: 200,
+      consistencyLevels: ['eventual', 'weak'] as ConsistencyLevel[],
+      transactionSupport: false,
+      backupSupport: true,
+      replicationSupport: false,
+      encryptionSupport: false,
+      compressionSupport: true,
+      fullTextSearch: true,
+      geospatialSupport: false,
+      vectorSearch: false,
+      streamingSupport: true
     };
   }
 

@@ -7,7 +7,9 @@ import {
   InterpretedQuery, 
   QueryExecutionPlan, 
   MCPQueryCapability,
-  AggregationStrategy 
+  QueryExecutionPhase,
+  MCPQueryFragment,
+  QueryOptimization
 } from '../../types/query.types';
 import { MCPRegistry } from '../../mcp/registry/MCPRegistry';
 
@@ -38,9 +40,23 @@ export class QueryExecutionPlanner {
     // Generate fallback plans
     const fallbacks = await this.generateFallbackPlans(interpretedQuery, mcpStates);
     
+    // Calculate total estimated time
+    const estimatedTime = phases.reduce((sum, phase) => {
+      return sum + (phase.estimatedDuration || 0);
+    }, 0);
+    
+    // Calculate resource requirements
+    const resourceRequirements = this.calculateResourceRequirements(phases);
+    
+    // Generate optimization notes
+    const optimizations = this.generateOptimizations(interpretedQuery, mcpStates);
+    
     return {
       executionId,
       phases,
+      estimatedTime,
+      resourceRequirements,
+      optimizations,
       strategy,
       fallbacks
     };
@@ -115,24 +131,24 @@ export class QueryExecutionPlanner {
   private async createExecutionPhases(
     interpretedQuery: InterpretedQuery,
     mcpStates: any[],
-    strategy: QueryExecutionPlan['strategy']
-  ): Promise<QueryExecutionPlan['phases']> {
-    const phases: QueryExecutionPlan['phases'] = [];
+    strategy: any
+  ): Promise<QueryExecutionPhase[]> {
+    const phases: QueryExecutionPhase[] = [];
     
     if (strategy.type === 'parallel') {
       // Single phase with all MCPs in parallel
       phases.push({
         phase: '1',
-        description: 'Parallel execution across all MCPs',
+        parallelizable: true,
         mcpQueries: mcpStates.map(mcp => ({
           mcpId: mcp.mcpId,
           query: this.buildMCPSpecificQuery(mcp, interpretedQuery),
           priority: 1,
           expectedResultSize: 100,
-          timeout: 10000,
-          dependencies: []
+          timeout: 10000
         })),
-        parallelizable: true
+        dependencies: [],
+        estimatedDuration: Math.max(...mcpStates.map(mcp => mcp.estimatedLatency || 100))
       });
     } else if (strategy.type === 'sequential') {
       // Multiple phases, one MCP per phase
@@ -141,16 +157,16 @@ export class QueryExecutionPlanner {
         .forEach((mcp, index) => {
           phases.push({
             phase: (index + 1).toString(),
-            description: `Query ${mcp.mcpId} - ${mcp.type} MCP`,
+            parallelizable: false,
             mcpQueries: [{
               mcpId: mcp.mcpId,
               query: this.buildMCPSpecificQuery(mcp, interpretedQuery),
               priority: 1,
               expectedResultSize: 100,
-              timeout: 10000,
-              dependencies: index > 0 ? [mcpStates[index - 1].mcpId] : []
+              timeout: 10000
             }],
-            parallelizable: false
+            dependencies: index > 0 ? [(index).toString()] : [],
+            estimatedDuration: mcp.estimatedLatency || 100
           });
         });
     } else if (strategy.type === 'hybrid') {
@@ -160,16 +176,18 @@ export class QueryExecutionPlanner {
       groups.forEach((group, index) => {
         phases.push({
           phase: (index + 1).toString(),
-          description: `Hybrid phase ${index + 1} - ${group.length} MCPs`,
+          parallelizable: group.length > 1,
           mcpQueries: group.map(mcp => ({
             mcpId: mcp.mcpId,
             query: this.buildMCPSpecificQuery(mcp, interpretedQuery),
             priority: 1,
             expectedResultSize: 100,
-            timeout: 10000,
-            dependencies: index > 0 ? [groups[index - 1][0].mcpId] : []
+            timeout: 10000
           })),
-          parallelizable: group.length > 1
+          dependencies: index > 0 ? [(index).toString()] : [],
+          estimatedDuration: group.length > 1 
+            ? Math.max(...group.map(mcp => mcp.estimatedLatency || 100))
+            : group[0].estimatedLatency || 100
         });
       });
     }
@@ -194,22 +212,26 @@ export class QueryExecutionPlanner {
         return {
           ...baseQuery,
           fields: this.selectOptimalFields('user', interpretedQuery.intents),
-          useCache: interpretedQuery.optimizations[0]?.useCache,
-          indexHints: interpretedQuery.optimizations[0]?.suggestedIndexes?.filter(idx => idx.includes('user'))
+          useCache: interpretedQuery.optimizations.find(opt => opt.useCache)?.useCache || false,
+          indexHints: interpretedQuery.optimizations
+            .flatMap(opt => opt.suggestedIndexes || [])
+            .filter(idx => idx.includes('user'))
         };
 
       case 'chat-mcp':
         return {
           ...baseQuery,
           includeMetadata: true,
-          sortBy: interpretedQuery.entities.temporal === 'recent' ? 'timestamp_desc' : 'relevance',
+          sortBy: interpretedQuery.entities.temporal && ['recent', 'today', 'yesterday'].includes(interpretedQuery.entities.temporal) 
+            ? 'timestamp_desc' 
+            : 'relevance',
           limit: this.calculateOptimalLimit(interpretedQuery.intents)
         };
 
       case 'token-mcp':
         return {
           ...baseQuery,
-          validateOnly: interpretedQuery.intents[0] === 'filter',
+          validateOnly: interpretedQuery.intents[0]?.type === 'filter',
           includeExpiration: true
         };
 
@@ -231,8 +253,8 @@ export class QueryExecutionPlanner {
   private async generateFallbackPlans(
     interpretedQuery: InterpretedQuery,
     mcpStates: any[]
-  ): Promise<QueryExecutionPlan['fallbacks']> {
-    const fallbacks: QueryExecutionPlan['fallbacks'] = [];
+  ): Promise<any[]> {
+    const fallbacks: any[] = [];
 
     // Fallback for primary MCP failure
     const primaryMCP = mcpStates.find(mcp => mcp.priority === 1);
@@ -301,7 +323,9 @@ export class QueryExecutionPlanner {
     }
     
     // Check for cross-reference requirements
-    if (interpretedQuery.aggregationStrategy === AggregationStrategy.CROSS_REFERENCE) {
+    if (interpretedQuery.aggregationStrategy && 
+        interpretedQuery.aggregationStrategy.type === 'custom' && 
+        interpretedQuery.aggregationStrategy.mergeStrategy === 'custom') {
       return false;
     }
     
@@ -411,16 +435,18 @@ export class QueryExecutionPlanner {
     return limits[primaryIntent as keyof typeof limits] || 100;
   }
 
-  private mapAggregationStrategy(strategy: AggregationStrategy): string {
-    const mapping = {
-      [AggregationStrategy.STATISTICAL_SUMMARY]: 'GROUP_STATS',
-      [AggregationStrategy.MERGE]: 'UNION',
-      [AggregationStrategy.CROSS_REFERENCE]: 'JOIN',
-      [AggregationStrategy.TIME_ORDERED]: 'ORDER_BY_TIME',
-      [AggregationStrategy.PRIORITIZE_HOT]: 'HOT_FIRST'
+  private mapAggregationStrategy(strategy: any): string {
+    if (!strategy || !strategy.type) return 'MERGE';
+    
+    const mapping: Record<string, string> = {
+      'statistical_summary': 'GROUP_STATS',
+      'merge': 'UNION',
+      'cross_reference': 'JOIN',
+      'time_ordered': 'ORDER_BY_TIME',
+      'prioritize_hot': 'HOT_FIRST'
     };
     
-    return mapping[strategy] || 'MERGE';
+    return mapping[strategy.type] || 'MERGE';
   }
 
   private determineGroupByFields(entities: any): string[] {
@@ -537,5 +563,131 @@ export class QueryExecutionPlanner {
     if (change < -0.1) return 'improving';
     if (change > 0.1) return 'degrading';
     return 'stable';
+  }
+
+  /**
+   * Calculate total resource requirements for execution phases
+   */
+  private calculateResourceRequirements(phases: QueryExecutionPhase[]): any {
+    const totalCPU = Math.max(...phases.map(phase => 
+      phase.mcpQueries.reduce((sum, query) => sum + this.estimateCPUForQuery(query), 0)
+    ));
+    
+    const totalMemory = phases.reduce((sum, phase) => 
+      sum + phase.mcpQueries.reduce((phaseSum, query) => phaseSum + this.estimateMemoryForQuery(query), 0)
+    , 0);
+    
+    const totalDiskIO = phases.reduce((sum, phase) => 
+      sum + phase.mcpQueries.reduce((phaseSum, query) => phaseSum + this.estimateDiskIOForQuery(query), 0)
+    , 0);
+    
+    const totalNetworkBandwidth = phases.reduce((sum, phase) => 
+      sum + phase.mcpQueries.reduce((phaseSum, query) => phaseSum + this.estimateNetworkForQuery(query), 0)
+    , 0);
+    
+    const estimatedDataSize = phases.reduce((sum, phase) => 
+      sum + phase.mcpQueries.reduce((phaseSum, query) => phaseSum + (query.expectedResultSize || 100), 0)
+    , 0);
+    
+    return {
+      cpu: totalCPU,
+      memory: totalMemory,
+      diskIO: totalDiskIO,
+      networkBandwidth: totalNetworkBandwidth,
+      dataSize: estimatedDataSize
+    };
+  }
+
+  /**
+   * Generate optimization suggestions for the query
+   */
+  private generateOptimizations(interpretedQuery: InterpretedQuery, mcpStates: any[]): string[] {
+    const optimizations: string[] = [];
+    
+    // Check if parallel execution is possible
+    if (mcpStates.length > 1 && this.areQueriesIndependent(interpretedQuery, mcpStates)) {
+      optimizations.push('Execute queries in parallel for faster results');
+    }
+    
+    // Check for caching opportunities
+    if (interpretedQuery.optimizations.some(opt => opt.useCache)) {
+      optimizations.push('Use cached results where available');
+    }
+    
+    // Check for index usage
+    const suggestedIndexes = interpretedQuery.optimizations.flatMap(opt => opt.suggestedIndexes || []);
+    if (suggestedIndexes.length > 0) {
+      optimizations.push(`Use indexes: ${suggestedIndexes.join(', ')}`);
+    }
+    
+    // Check for hot MCP prioritization
+    const hotMCPs = mcpStates.filter(mcp => mcp.type === 'hot');
+    if (hotMCPs.length > 0) {
+      optimizations.push('Prioritize hot MCPs for recent data');
+    }
+    
+    return optimizations;
+  }
+
+  /**
+   * Estimate CPU usage for a query
+   */
+  private estimateCPUForQuery(query: MCPQueryFragment): number {
+    const baseCPU = {
+      'user-mcp': 20,
+      'chat-mcp': 30,
+      'stats-mcp': 50,
+      'logs-mcp': 40,
+      'token-mcp': 10
+    };
+    
+    return baseCPU[query.mcpId as keyof typeof baseCPU] || 25;
+  }
+
+  /**
+   * Estimate memory usage for a query
+   */
+  private estimateMemoryForQuery(query: MCPQueryFragment): number {
+    const baseMemory = {
+      'user-mcp': 50,
+      'chat-mcp': 100,
+      'stats-mcp': 75,
+      'logs-mcp': 200,
+      'token-mcp': 10
+    };
+    
+    const base = baseMemory[query.mcpId as keyof typeof baseMemory] || 50;
+    // Scale by expected result size
+    return base * (query.expectedResultSize / 100);
+  }
+
+  /**
+   * Estimate disk I/O for a query
+   */
+  private estimateDiskIOForQuery(query: MCPQueryFragment): number {
+    const baseDiskIO = {
+      'user-mcp': 10,
+      'chat-mcp': 50,
+      'stats-mcp': 30,
+      'logs-mcp': 100,
+      'token-mcp': 5
+    };
+    
+    return baseDiskIO[query.mcpId as keyof typeof baseDiskIO] || 25;
+  }
+
+  /**
+   * Estimate network bandwidth for a query
+   */
+  private estimateNetworkForQuery(query: MCPQueryFragment): number {
+    const baseNetwork = {
+      'user-mcp': 10,
+      'chat-mcp': 50,
+      'stats-mcp': 25,
+      'logs-mcp': 100,
+      'token-mcp': 5
+    };
+    
+    return baseNetwork[query.mcpId as keyof typeof baseNetwork] || 25;
   }
 }

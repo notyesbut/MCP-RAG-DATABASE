@@ -419,6 +419,9 @@ export interface MCPMetrics {
   /** Total failed operations */
   failedOperations: number;
   
+  /** Total operations (successful + failed) */
+  totalOperations: number;
+  
   /** Last metrics update timestamp */
   lastUpdated: number;
 }
@@ -817,6 +820,12 @@ export interface MigrationPlan {
   
   /** Priority level */
   priority: 'low' | 'medium' | 'high' | 'critical';
+  
+  /** Scheduled execution time */
+  scheduledTime?: number;
+  
+  /** Status */
+  status?: 'pending' | 'running' | 'completed' | 'failed';
 }
 
 /**
@@ -907,6 +916,9 @@ export interface MCPInstance extends BaseMCP {
   
   /** Access count */
   accessCount?: number;
+  
+  /** Last accessed timestamp */
+  lastAccessed?: number;
 }
 
 /**
@@ -1047,16 +1059,38 @@ export interface BaseMCP {
   type: MCPTypeString;
   
   // Core methods
-  store(record: DataRecord): Promise<void>;
-  query(query: MCPQuery): Promise<MCPQueryResult>;
-  update(id: string, data: any): Promise<void>;
-  delete(id: string): Promise<void>;
+  store(record: DataRecord): Promise<boolean>;
+  retrieve(id: string): Promise<DataRecord | null>;
+  query(filters: Record<string, any>): Promise<DataRecord[]>;
+  update(record: DataRecord): Promise<boolean>;
+  delete(id: string): Promise<boolean>;
+  create(record: DataRecord): Promise<boolean>;
   
   // Health and monitoring
-  getHealth(): Promise<MCPHealth>;
-  getMetrics(): Promise<MCPMetrics>;
-  getLogs(filter?: any): Promise<LogEntry[]>;
+  getHealth(): Promise<{
+    status: 'healthy' | 'degraded' | 'unhealthy';
+    uptime: number;
+    memoryUsage: number;
+    cpuUsage: number;
+    diskUsage: number;
+  }>;
+  getMetrics(): Promise<{
+    totalRecords: number;
+    queryCount: number;
+    lastAccess: string;
+    avgQueryTime: number;
+    errorRate: number;
+    storageUsed: number;
+    indexCount: number;
+    memoryUsage: number;
+    cpuUsage: number;
+    diskUsage: number;
+    networkIO?: { inbound: number; outbound: number };
+    queryLatency?: { p50: number; p95: number; p99: number };
+  }>;
+  getLogs(options: { limit?: number; level?: string; }): Promise<any[]>;
   getConfiguration(): MCPConfiguration;
+  getMetadata(): MCPMetadata;
   
   // Lifecycle
   initialize(): Promise<void>;

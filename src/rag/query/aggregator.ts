@@ -3,7 +3,8 @@
  * Intelligently combines results from multiple MCPs into unified responses
  */
 
-import { QueryResult, AggregationStrategy, QueryError, QueryWarning, QueryLearning } from '../../types/query.types';
+import { QueryResult, QueryError, QueryWarning } from '../../types/query.types';
+import { AggregationStrategyType, QueryLearning } from './aggregator.types';
 
 export interface MCPResult {
   mcpId: string;
@@ -31,7 +32,7 @@ export class ResultAggregator {
    */
   async aggregateResults(
     mcpResults: MCPResult[],
-    strategy: AggregationStrategy,
+    strategy: string,
     executionId: string,
     originalQuery: string
   ): Promise<QueryResult> {
@@ -77,28 +78,28 @@ export class ResultAggregator {
    */
   private async applyAggregationStrategy(
     results: MCPResult[], 
-    strategy: AggregationStrategy
+    strategy: string
   ): Promise<any[]> {
     switch (strategy) {
-      case AggregationStrategy.MERGE:
+      case AggregationStrategyType.MERGE:
         return this.mergeResults(results);
       
-      case AggregationStrategy.DEDUPLICATE:
+      case AggregationStrategyType.DEDUPLICATE:
         return this.deduplicateResults(results);
       
-      case AggregationStrategy.PRIORITIZE_HOT:
+      case AggregationStrategyType.PRIORITIZE_HOT:
         return this.prioritizeHotResults(results);
       
-      case AggregationStrategy.TIME_ORDERED:
+      case AggregationStrategyType.TIME_ORDERED:
         return this.timeOrderedResults(results);
       
-      case AggregationStrategy.WEIGHTED_AVERAGE:
+      case AggregationStrategyType.WEIGHTED_AVERAGE:
         return this.weightedAverageResults(results);
       
-      case AggregationStrategy.STATISTICAL_SUMMARY:
+      case AggregationStrategyType.STATISTICAL_SUMMARY:
         return this.statisticalSummaryResults(results);
       
-      case AggregationStrategy.CROSS_REFERENCE:
+      case AggregationStrategyType.CROSS_REFERENCE:
         return this.crossReferenceResults(results);
       
       default:
@@ -299,7 +300,7 @@ export class ResultAggregator {
   /**
    * Calculate aggregation metadata
    */
-  private calculateAggregationMetadata(results: MCPResult[], strategy: AggregationStrategy) {
+  private calculateAggregationMetadata(results: MCPResult[], strategy: string) {
     const totalRecords = results.reduce((sum, r) => sum + r.metadata.recordCount, 0);
     
     return {
@@ -319,7 +320,7 @@ export class ResultAggregator {
    */
   private generateInsights(
     results: MCPResult[], 
-    strategy: AggregationStrategy, 
+    strategy: string, 
     originalQuery: string
   ): QueryResult['insights'] {
     const totalTime = results.reduce((sum, r) => sum + r.metadata.queryTime, 0);
@@ -344,7 +345,7 @@ export class ResultAggregator {
     }
     
     // Suggestions based on query patterns
-    if (strategy === AggregationStrategy.MERGE && results.length > 3) {
+    if (strategy === AggregationStrategyType.MERGE && results.length > 3) {
       suggestions.push('Consider using deduplicate strategy for large multi-MCP queries');
     }
     
@@ -393,7 +394,7 @@ export class ResultAggregator {
   /**
    * Update learning data for future optimizations
    */
-  private updateLearningData(results: MCPResult[], strategy: AggregationStrategy, duration: number): void {
+  private updateLearningData(results: MCPResult[], strategy: string, duration: number): void {
     // Update performance data
     for (const result of results) {
       const mcpPerf = this.learningData.performance.avgQueryTime[result.mcpId as keyof typeof this.learningData.performance.avgQueryTime];

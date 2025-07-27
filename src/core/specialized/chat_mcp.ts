@@ -79,13 +79,21 @@ export class ChatMCP extends BaseMCP {
     this.setupChatSpecificIndices();
   }
 
-  protected defineCapabilities() {
+  protected defineCapabilities(): MCPCapabilities {
     return {
-      supportedDataTypes: ['chat_message'],
-      supportedQueryTypes: ['conversation', 'thread', 'sender', 'receiver', 'hashtag', 'mention', 'date', 'content_type'],
-      isTemporal: true,
-      isVolatile: false,
-      isVersioned: true,
+      queryTypes: ['select', 'insert', 'update', 'delete', 'search'],
+      dataTypes: ['chat_message', 'string', 'object', 'array'],
+      maxConnections: 500, // Higher for real-time chat
+      consistencyLevels: ['eventual', 'weak'], // Chat can tolerate eventual consistency
+      transactionSupport: false,
+      backupSupport: true,
+      replicationSupport: true,
+      encryptionSupport: true,
+      compressionSupport: true,
+      fullTextSearch: true,
+      geospatialSupport: false,
+      vectorSearch: false,
+      streamingSupport: true // Important for real-time chat
     };
   }
 
@@ -496,29 +504,32 @@ export class ChatMCP extends BaseMCP {
     return options?.limit ? messages.slice(0, options.limit) : messages;
   }
 
-  async insert(data: any[], options?: any): Promise<any> {
-    for (const item of data) {
-      await this.store(item);
+  // Override query method to properly implement the interface
+  async query(filters: Record<string, any>): Promise<DataRecord[]> {
+    if (filters.conversationId) {
+      return this.getConversationMessages(filters.conversationId, filters.limit, filters.offset);
     }
-    return { success: true };
-  }
-
-  async query(query: any): Promise<any> {
-    if (query.conversationId) {
-      return this.getConversationMessages(query.conversationId);
+    if (filters.senderId) {
+      return this.getMessagesBySender(filters.senderId, filters.limit);
     }
-    return null;
-  }
-
-  async update(id: string, data: any, options?: any): Promise<any> {
-    const record = await this.retrieve(id);
-    if (!record) return { success: false };
-    const updatedRecord = { ...record, ...data };
-    return this.store(updatedRecord);
-  }
-
-  async delete(id: string, options?: any): Promise<any> {
-    return super.delete(id);
+    if (filters.threadId) {
+      return this.getThreadMessages(filters.threadId);
+    }
+    if (filters.hashtag) {
+      return this.getMessagesByHashtag(filters.hashtag);
+    }
+    if (filters.userId && filters.mentions) {
+      return this.getMentions(filters.userId);
+    }
+    if (filters.date) {
+      return this.getMessagesByDate(filters.date);
+    }
+    if (filters.contentType) {
+      return this.getMessagesByContentType(filters.contentType);
+    }
+    
+    // Default to parent query implementation
+    return super.query(filters);
   }
 
   async createIndex(definition: any): Promise<any> {

@@ -1,0 +1,20 @@
+{"level":"info","message":"🔄 Initializing Enterprise Multi-MCP Smart Database System...","service":"enterprise-mcp-api","timestamp":"2025-07-27 14:18:36.551"}
+{"level":"info","message":"📋 Initializing MCP Registry...","service":"enterprise-mcp-api","timestamp":"2025-07-27 14:18:36.552"}
+{"level":"info","message":"🏭 Registering specialized MCP factories...","service":"enterprise-mcp-api","timestamp":"2025-07-27 14:18:36.552"}
+{"level":"info","message":"✅ All MCP factories registered successfully","service":"enterprise-mcp-api","timestamp":"2025-07-27 14:18:36.552"}
+{"level":"info","message":"🗂️ Creating initial specialized MCPs...","service":"enterprise-mcp-api","timestamp":"2025-07-27 14:18:36.553"}
+{"level":"info","message":"✅ Created initial MCPs","service":"enterprise-mcp-api","timestamp":"2025-07-27 14:18:36.557"}
+{"level":"info","message":"🧠 Initializing RAG₁ Intelligent Ingestion Controller...","service":"enterprise-mcp-api","timestamp":"2025-07-27 14:18:36.558"}
+{"level":"info","message":"🔍 Initializing RAG₂ Natural Language Query Controller...","service":"enterprise-mcp-api","timestamp":"2025-07-27 14:18:36.558"}
+{"level":"info","message":"🛣️ Initializing API routes with RAG controllers...","service":"enterprise-mcp-api","timestamp":"2025-07-27 14:18:36.558"}
+{"level":"info","message":"✅ Enterprise Multi-MCP Smart Database System initialized successfully!","service":"enterprise-mcp-api","timestamp":"2025-07-27 14:18:36.561"}
+{"level":"info","message":"🚀 Enterprise Multi-MCP API Server started","service":"enterprise-mcp-api","timestamp":"2025-07-27 14:18:36.566"}
+{"level":"info","message":"📍 Server running on http://localhost:3000","service":"enterprise-mcp-api","timestamp":"2025-07-27 14:18:36.566"}
+{"level":"info","message":"📚 API Documentation: http://localhost:3000/api-docs","service":"enterprise-mcp-api","timestamp":"2025-07-27 14:18:36.566"}
+{"level":"info","message":"💓 Health Check: http://localhost:3000/health","service":"enterprise-mcp-api","timestamp":"2025-07-27 14:18:36.566"}
+{"level":"info","message":"🔌 WebSocket: ws://localhost:3000/socket.io","service":"enterprise-mcp-api","timestamp":"2025-07-27 14:18:36.567"}
+{"level":"info","message":"🌍 Environment: development","service":"enterprise-mcp-api","timestamp":"2025-07-27 14:18:36.567"}
+{"level":"info","message":"🧠 RAG₁ Intelligent Ingestion: ACTIVE","service":"enterprise-mcp-api","timestamp":"2025-07-27 14:18:36.567"}
+{"level":"info","message":"🔍 RAG₂ Natural Language Queries: ACTIVE","service":"enterprise-mcp-api","timestamp":"2025-07-27 14:18:36.567"}
+{"level":"info","message":"🗂️ Multi-MCP Registry: ACTIVE","service":"enterprise-mcp-api","timestamp":"2025-07-27 14:18:36.567"}
+{"level":"info","message":"Received shutdown signal, closing server gracefully...","service":"enterprise-mcp-api","timestamp":"2025-07-27 14:19:18.441"}

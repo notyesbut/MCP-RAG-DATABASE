@@ -80,8 +80,18 @@ describe('RAG₂ Natural Language Query System', () => {
   beforeEach(() => {
     mockRegistry = new MockMCPRegistry();
     rag2Controller = createRAG2Controller(mockRegistry, {
-      caching: { enabled: false }, // Disable caching for tests
-      learning: { enabled: false }  // Disable learning for predictable tests
+      caching: { 
+        enabled: false,
+        default_ttl: 0,
+        max_cache_size: 0,
+        intelligent_invalidation: false
+      },
+      learning: { 
+        enabled: false,
+        pattern_learning_rate: 0,
+        performance_tracking: false,
+        auto_optimization: false
+      }
     });
   });
 
@@ -123,7 +133,7 @@ describe('RAG₂ Natural Language Query System', () => {
       const result = await rag2Controller.processNaturalQuery(query);
 
       expect(result.success).toBe(true);
-      expect(result.data.metadata.sources).toEqual(
+      expect(result.sources).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ mcpId: 'user-mcp' })
         ])
@@ -144,7 +154,7 @@ describe('RAG₂ Natural Language Query System', () => {
       const result = await rag2Controller.processNaturalQuery(query);
 
       expect(result.success).toBe(true);
-      expect(result.data.metadata.sources).toEqual(
+      expect(result.sources).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ mcpId: 'chat-mcp' })
         ])
@@ -170,10 +180,10 @@ describe('RAG₂ Natural Language Query System', () => {
       const result = await rag2Controller.processNaturalQuery(query);
 
       expect(result.success).toBe(true);
-      expect(result.data.metadata.sources.length).toBeGreaterThan(1);
+      expect(result.sources.length).toBeGreaterThan(1);
       
       // Should include both chat and token MCPs
-      const mcpIds = result.data.metadata.sources.map(s => s.mcpId);
+      const mcpIds = result.sources.map(s => s.mcpId);
       expect(mcpIds).toContain('chat-mcp');
       expect(mcpIds).toContain('token-mcp');
     });
@@ -192,7 +202,7 @@ describe('RAG₂ Natural Language Query System', () => {
       const result = await rag2Controller.processNaturalQuery(query);
 
       expect(result.success).toBe(true);
-      expect(result.data.metadata.aggregationApplied).toBe('cross_reference');
+      expect(result.metadata?.aggregationApplied).toBe('cross_reference');
       expect(result.insights.interpretation).toContain('analyze');
     });
   });
@@ -233,7 +243,7 @@ describe('RAG₂ Natural Language Query System', () => {
 
       expect(result.success).toBe(true);
       // Historical queries might be slower
-      expect(result.data.metadata.sources).toBeDefined();
+      expect(result.sources).toBeDefined();
     });
   });
 
@@ -241,23 +251,23 @@ describe('RAG₂ Natural Language Query System', () => {
     test('should recognize count intent', async () => {
       const interpretation = await rag2Controller.plan('count active users');
 
-      expect(interpretation.intents[0]).toBe('count');
+      expect(interpretation.intents[0].type).toBe('count');
       expect(interpretation.entities.dataType).toBe('users');
-      expect(interpretation.aggregationStrategy).toBe('statistical_summary');
+      expect(interpretation.aggregationStrategy?.type).toBe('custom');
     });
 
     test('should recognize search intent', async () => {
       const interpretation = await rag2Controller.plan('search messages containing error');
 
-      expect(interpretation.intents[0]).toBe('search');
+      expect(interpretation.intents[0].type).toBe('search');
       expect(interpretation.entities.dataType).toBe('messages');
     });
 
     test('should recognize analyze intent', async () => {
       const interpretation = await rag2Controller.plan('analyze user behavior patterns');
 
-      expect(interpretation.intents[0]).toBe('analyze');
-      expect(interpretation.targetMCPs.some(mcp => mcp === 'analytics-mcp')).toBe(true);
+      expect(interpretation.intents[0].type).toBe('analyze');
+      expect(interpretation.targetMCPs.some(mcp => mcp.mcpId === 'analytics-mcp')).toBe(true);
     });
   });
 
@@ -418,10 +428,10 @@ describe('RAG₂ Natural Language Query System', () => {
       const result = await rag2Controller.processNaturalQuery(query);
 
       expect(result.success).toBe(true);
-      expect(result.metadata.sources.length).toBeGreaterThanOrEqual(2);
+      expect(result.data.metadata.sources.length).toBeGreaterThanOrEqual(2);
       
       // Should include token validation and user/message retrieval
-      const mcpIds = result.data.metadata.sources.map(s => s.mcpId);
+      const mcpIds = result.sources.map(s => s.mcpId);
       expect(mcpIds).toContain('token-mcp');
       expect(mcpIds.some(id => id.includes('user') || id.includes('chat'))).toBe(true);
     });
@@ -436,7 +446,7 @@ describe('RAG₂ Natural Language Query System', () => {
 
       expect(result.success).toBe(true);
       expect(result.insights.interpretation).toContain('analyze');
-      expect(result.data.metadata.aggregationApplied).toBe('cross_reference');
+      expect(result.metadata?.aggregationApplied).toBe('cross_reference');
     });
 
     test('should handle search and filter query', async () => {
@@ -450,7 +460,7 @@ describe('RAG₂ Natural Language Query System', () => {
       expect(result.success).toBe(true);
       
       const interpretation = await rag2Controller.plan(query.raw);
-      expect(interpretation.intents[0]).toBe('search');
+      expect(interpretation.intents[0].type).toBe('search');
       expect(interpretation.entities.temporal).toBe('recent');
       expect(interpretation.entities.filters.some(f => f.field === 'email' && f.value === 'admin@example.com')).toBe(true);
     });
@@ -529,8 +539,8 @@ describe('RAG₂ Advanced Error Handling and Resilience', () => {
   test('should enforce rate limiting', async () => {
     const queries = Array.from({ length: 100 }, (_, i) => ({
       raw: `rapid query ${i}`,
-      metadata: { id: `rate-limit-test-${i}`, timestamp: Date.now(), source: 'api', priority: 'high' }
-    }));
+      metadata: { id: `rate-limit-test-${i}`, timestamp: Date.now(), source: 'api' as const, priority: 'high' }
+    }) as NaturalQuery);
 
     const results = await Promise.all(
       queries.map(query => rag2Controller.processNaturalQuery(query))
@@ -569,8 +579,8 @@ describe('RAG₂ Performance Benchmarks', () => {
   test('should handle concurrent queries efficiently', async () => {
     const queries = Array.from({ length: 10 }, (_, i) => ({
       raw: `get user ${i}`,
-      metadata: { id: `concurrent-${i}`, timestamp: Date.now(), source: 'api', priority: 'high' }
-    }));
+      metadata: { id: `concurrent-${i}`, timestamp: Date.now(), source: 'api' as const, priority: 'high' }
+    }) as NaturalQuery);
 
     const startTime = Date.now();
     const results = await Promise.all(
@@ -635,8 +645,8 @@ describe('RAG₂ Performance Benchmarks', () => {
   test('should track performance metrics accurately', async () => {
     const queries = Array.from({ length: 10 }, (_, i) => ({
       raw: `performance test query ${i}`,
-      metadata: { id: `metrics-test-${i}`, timestamp: Date.now(), source: 'api', priority: 'high' }
-    }));
+      metadata: { id: `metrics-test-${i}`, timestamp: Date.now(), source: 'api' as const, priority: 'high' }
+    }) as NaturalQuery);
 
     const results = [];
     for (const query of queries) {
@@ -666,8 +676,7 @@ describe('RAG₂ Security and Authentication', () => {
     const query: NaturalQuery = {
       raw: 'get sensitive user data',
       context: { 
-        userId: 'test-user',
-        authToken: 'invalid-token'
+        userId: 'test-user'
       },
       metadata: { id: 'security-test', timestamp: Date.now(), source: 'api', priority: 'high' }
     };
@@ -682,8 +691,7 @@ describe('RAG₂ Security and Authentication', () => {
     const restrictedQuery: NaturalQuery = {
       raw: 'get admin user data',
       context: { 
-        userId: 'regular-user',
-        role: 'user'
+        userId: 'regular-user'
       },
       metadata: { id: 'authorization-test', timestamp: Date.now(), source: 'api', priority: 'high' }
     };

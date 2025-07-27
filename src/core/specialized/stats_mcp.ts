@@ -4,7 +4,7 @@
  */
 
 import { BaseMCP } from '../mcp/base_mcp';
-import { MCPConfig, DataRecord, MCPType, MCPDomain } from '../../types/mcp.types';
+import { MCPConfig, DataRecord, MCPType, MCPDomain, ConsistencyLevel } from '../../types/mcp.types';
 
 interface StatsData {
   id: string;
@@ -53,11 +53,19 @@ export class StatsMCP extends BaseMCP {
 
   protected defineCapabilities() {
     return {
-      supportedDataTypes: ['stats'],
-      supportedQueryTypes: ['metric', 'category', 'time', 'dimension', 'tag', 'source'],
-      isTemporal: true,
-      isVolatile: false,
-      isVersioned: false,
+      queryTypes: ['select', 'insert', 'update', 'delete', 'aggregate', 'search'] as ('select' | 'insert' | 'update' | 'delete' | 'aggregate' | 'search')[],
+      dataTypes: ['number', 'string', 'object', 'array'],
+      maxConnections: 100,
+      consistencyLevels: ['eventual'] as ConsistencyLevel[],
+      transactionSupport: false,
+      backupSupport: true,
+      replicationSupport: true,
+      encryptionSupport: false,
+      compressionSupport: true,
+      fullTextSearch: true,
+      geospatialSupport: false,
+      vectorSearch: false,
+      streamingSupport: true
     };
   }
 
