@@ -207,7 +207,7 @@ class TestRunner {
         args.push('--watch');
       }
 
-      const jest = spawn('npx', ['jest', ...args], {
+      const jestProcess = spawn('npx', ['jest', ...args], {
         stdio: this.options.verbose ? 'inherit' : 'pipe',
         cwd: process.cwd()
       });
