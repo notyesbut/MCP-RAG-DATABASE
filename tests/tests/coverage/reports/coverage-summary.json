@@ -1,0 +1,66 @@
+{
+  "timestamp": "2025-07-27T13:13:08.981Z",
+  "overall": {
+    "total": 0,
+    "passed": 0,
+    "failed": 0,
+    "skipped": 0
+  },
+  "suites": {
+    "Unit Tests": {
+      "total": 0,
+      "passed": 0,
+      "failed": 1,
+      "skipped": 0,
+      "duration": 189,
+      "status": "failed",
+      "error": "Jest exited with code 1\n● Multiple configurations found:\n\n    * /home/glebs/IdeaProjects/ragdb/untitled/tests/jest.config.js\n    * `jest` key in /home/glebs/IdeaProjects/ragdb/untitled/tests/package.json\n\n  Implicit config resolution does not allow multiple configuration files.\n  Either remove unused config files or select one explicitly with `--config`.\n\n  Configuration Documentation:\n  https://jestjs.io/docs/configuration\n\n"
+    },
+    "Integration Tests": {
+      "total": 0,
+      "passed": 0,
+      "failed": 1,
+      "skipped": 0,
+      "duration": 190,
+      "status": "failed",
+      "error": "Jest exited with code 1\n● Multiple configurations found:\n\n    * /home/glebs/IdeaProjects/ragdb/untitled/tests/jest.config.js\n    * `jest` key in /home/glebs/IdeaProjects/ragdb/untitled/tests/package.json\n\n  Implicit config resolution does not allow multiple configuration files.\n  Either remove unused config files or select one explicitly with `--config`.\n\n  Configuration Documentation:\n  https://jestjs.io/docs/configuration\n\n"
+    },
+    "Security Tests": {
+      "total": 0,
+      "passed": 0,
+      "failed": 1,
+      "skipped": 0,
+      "duration": 195,
+      "status": "failed",
+      "error": "Jest exited with code 1\n● Multiple configurations found:\n\n    * /home/glebs/IdeaProjects/ragdb/untitled/tests/jest.config.js\n    * `jest` key in /home/glebs/IdeaProjects/ragdb/untitled/tests/package.json\n\n  Implicit config resolution does not allow multiple configuration files.\n  Either remove unused config files or select one explicitly with `--config`.\n\n  Configuration Documentation:\n  https://jestjs.io/docs/configuration\n\n"
+    },
+    "Performance Tests": {
+      "total": 0,
+      "passed": 0,
+      "failed": 1,
+      "skipped": 0,
+      "duration": 194,
+      "status": "failed",
+      "error": "Jest exited with code 1\n● Multiple configurations found:\n\n    * /home/glebs/IdeaProjects/ragdb/untitled/tests/jest.config.js\n    * `jest` key in /home/glebs/IdeaProjects/ragdb/untitled/tests/package.json\n\n  Implicit config resolution does not allow multiple configuration files.\n  Either remove unused config files or select one explicitly with `--config`.\n\n  Configuration Documentation:\n  https://jestjs.io/docs/configuration\n\n"
+    },
+    "Benchmark Tests": {
+      "total": 0,
+      "passed": 0,
+      "failed": 1,
+      "skipped": 0,
+      "duration": 190,
+      "status": "failed",
+      "error": "Jest exited with code 1\n● Multiple configurations found:\n\n    * /home/glebs/IdeaProjects/ragdb/untitled/tests/jest.config.js\n    * `jest` key in /home/glebs/IdeaProjects/ragdb/untitled/tests/package.json\n\n  Implicit config resolution does not allow multiple configuration files.\n  Either remove unused config files or select one explicitly with `--config`.\n\n  Configuration Documentation:\n  https://jestjs.io/docs/configuration\n\n"
+    },
+    "E2E Tests": {
+      "total": 0,
+      "passed": 0,
+      "failed": 1,
+      "skipped": 0,
+      "duration": 191,
+      "status": "failed",
+      "error": "Jest exited with code 1\n● Multiple configurations found:\n\n    * /home/glebs/IdeaProjects/ragdb/untitled/tests/jest.config.js\n    * `jest` key in /home/glebs/IdeaProjects/ragdb/untitled/tests/package.json\n\n  Implicit config resolution does not allow multiple configuration files.\n  Either remove unused config files or select one explicitly with `--config`.\n\n  Configuration Documentation:\n  https://jestjs.io/docs/configuration\n\n"
+    }
+  },
+  "coverageEnabled": true
+}

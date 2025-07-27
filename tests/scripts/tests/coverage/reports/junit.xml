@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite 
+    name="Enterprise Multi-MCP Smart Database"
+    tests="0"
+    failures="0"
+    skipped="0"
+    time="1.147">
+    
+        <testcase 
+            classname="Unit.Tests"
+            name="Unit Tests"
+            time="0.199">
+            <failure message="Jest exited with code 1
+● Multiple configurations found:
+
+    * /home/glebs/IdeaProjects/ragdb/untitled/tests/jest.config.js
+    * `jest` key in /home/glebs/IdeaProjects/ragdb/untitled/tests/package.json
+
+  Implicit config resolution does not allow multiple configuration files.
+  Either remove unused config files or select one explicitly with `--config`.
+
+  Configuration Documentation:
+  https://jestjs.io/docs/configuration
+
+" />
+        </testcase>
+    
+        <testcase 
+            classname="Integration.Tests"
+            name="Integration Tests"
+            time="0.19">
+            <failure message="Jest exited with code 1
+● Multiple configurations found:
+
+    * /home/glebs/IdeaProjects/ragdb/untitled/tests/jest.config.js
+    * `jest` key in /home/glebs/IdeaProjects/ragdb/untitled/tests/package.json
+
+  Implicit config resolution does not allow multiple configuration files.
+  Either remove unused config files or select one explicitly with `--config`.
+
+  Configuration Documentation:
+  https://jestjs.io/docs/configuration
+
+" />
+        </testcase>
+    
+        <testcase 
+            classname="Security.Tests"
+            name="Security Tests"
+            time="0.193">
+            <failure message="Jest exited with code 1
+● Multiple configurations found:
+
+    * /home/glebs/IdeaProjects/ragdb/untitled/tests/jest.config.js
+    * `jest` key in /home/glebs/IdeaProjects/ragdb/untitled/tests/package.json
+
+  Implicit config resolution does not allow multiple configuration files.
+  Either remove unused config files or select one explicitly with `--config`.
+
+  Configuration Documentation:
+  https://jestjs.io/docs/configuration
+
+" />
+        </testcase>
+    
+        <testcase 
+            classname="Performance.Tests"
+            name="Performance Tests"
+            time="0.187">
+            <failure message="Jest exited with code 1
+● Multiple configurations found:
+
+    * /home/glebs/IdeaProjects/ragdb/untitled/tests/jest.config.js
+    * `jest` key in /home/glebs/IdeaProjects/ragdb/untitled/tests/package.json
+
+  Implicit config resolution does not allow multiple configuration files.
+  Either remove unused config files or select one explicitly with `--config`.
+
+  Configuration Documentation:
+  https://jestjs.io/docs/configuration
+
+" />
+        </testcase>
+    
+        <testcase 
+            classname="Benchmark.Tests"
+            name="Benchmark Tests"
+            time="0.186">
+            <failure message="Jest exited with code 1
+● Multiple configurations found:
+
+    * /home/glebs/IdeaProjects/ragdb/untitled/tests/jest.config.js
+    * `jest` key in /home/glebs/IdeaProjects/ragdb/untitled/tests/package.json
+
+  Implicit config resolution does not allow multiple configuration files.
+  Either remove unused config files or select one explicitly with `--config`.
+
+  Configuration Documentation:
+  https://jestjs.io/docs/configuration
+
+" />
+        </testcase>
+    
+        <testcase 
+            classname="E2E.Tests"
+            name="E2E Tests"
+            time="0.187">
+            <failure message="Jest exited with code 1
+● Multiple configurations found:
+
+    * /home/glebs/IdeaProjects/ragdb/untitled/tests/jest.config.js
+    * `jest` key in /home/glebs/IdeaProjects/ragdb/untitled/tests/package.json
+
+  Implicit config resolution does not allow multiple configuration files.
+  Either remove unused config files or select one explicitly with `--config`.
+
+  Configuration Documentation:
+  https://jestjs.io/docs/configuration
+
+" />
+        </testcase>
+    
+</testsuite>

@@ -1,0 +1,49 @@
+{
+  "timestamp": "2025-07-27T13:13:55.105Z",
+  "totalDuration": 1147,
+  "suites": [
+    {
+      "name": "Unit Tests",
+      "duration": 199,
+      "testsPerSecond": 0,
+      "status": "failed"
+    },
+    {
+      "name": "Integration Tests",
+      "duration": 190,
+      "testsPerSecond": 0,
+      "status": "failed"
+    },
+    {
+      "name": "Security Tests",
+      "duration": 193,
+      "testsPerSecond": 0,
+      "status": "failed"
+    },
+    {
+      "name": "Performance Tests",
+      "duration": 187,
+      "testsPerSecond": 0,
+      "status": "failed"
+    },
+    {
+      "name": "Benchmark Tests",
+      "duration": 186,
+      "testsPerSecond": 0,
+      "status": "failed"
+    },
+    {
+      "name": "E2E Tests",
+      "duration": 187,
+      "testsPerSecond": 0,
+      "status": "failed"
+    }
+  ],
+  "systemInfo": {
+    "platform": "linux",
+    "arch": "x64",
+    "cpus": 24,
+    "memory": "15GB",
+    "node": "v20.19.3"
+  }
+}
