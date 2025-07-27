@@ -4,12 +4,12 @@
     tests="0"
     failures="0"
     skipped="0"
-    time="1.147">
+    time="1.193">
     
         <testcase 
             classname="Unit.Tests"
             name="Unit Tests"
-            time="0.199">
+            time="0.209">
             <failure message="Jest exited with code 1
 ● Multiple configurations found:
 
@@ -28,7 +28,7 @@
         <testcase 
             classname="Integration.Tests"
             name="Integration Tests"
-            time="0.19">
+            time="0.196">
             <failure message="Jest exited with code 1
 ● Multiple configurations found:
 
@@ -47,7 +47,7 @@
         <testcase 
             classname="Security.Tests"
             name="Security Tests"
-            time="0.193">
+            time="0.192">
             <failure message="Jest exited with code 1
 ● Multiple configurations found:
 
@@ -66,7 +66,7 @@
         <testcase 
             classname="Performance.Tests"
             name="Performance Tests"
-            time="0.187">
+            time="0.2">
             <failure message="Jest exited with code 1
 ● Multiple configurations found:
 
@@ -85,7 +85,7 @@
         <testcase 
             classname="Benchmark.Tests"
             name="Benchmark Tests"
-            time="0.186">
+            time="0.2">
             <failure message="Jest exited with code 1
 ● Multiple configurations found:
 
@@ -104,7 +104,7 @@
         <testcase 
             classname="E2E.Tests"
             name="E2E Tests"
-            time="0.187">
+            time="0.191">
             <failure message="Jest exited with code 1
 ● Multiple configurations found:
 

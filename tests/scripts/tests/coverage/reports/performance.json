@@ -1,40 +1,40 @@
 {
-  "timestamp": "2025-07-27T13:13:55.105Z",
-  "totalDuration": 1147,
+  "timestamp": "2025-07-27T16:37:36.394Z",
+  "totalDuration": 1193,
   "suites": [
     {
       "name": "Unit Tests",
-      "duration": 199,
+      "duration": 209,
       "testsPerSecond": 0,
       "status": "failed"
     },
     {
       "name": "Integration Tests",
-      "duration": 190,
+      "duration": 196,
       "testsPerSecond": 0,
       "status": "failed"
     },
     {
       "name": "Security Tests",
-      "duration": 193,
+      "duration": 192,
       "testsPerSecond": 0,
       "status": "failed"
     },
     {
       "name": "Performance Tests",
-      "duration": 187,
+      "duration": 200,
       "testsPerSecond": 0,
       "status": "failed"
     },
     {
       "name": "Benchmark Tests",
-      "duration": 186,
+      "duration": 200,
       "testsPerSecond": 0,
       "status": "failed"
     },
     {
       "name": "E2E Tests",
-      "duration": 187,
+      "duration": 191,
       "testsPerSecond": 0,
       "status": "failed"
     }
