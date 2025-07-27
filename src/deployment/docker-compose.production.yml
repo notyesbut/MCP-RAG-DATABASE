@@ -1,0 +1,318 @@
+# Production Docker Compose Configuration for Enterprise Multi-MCP Smart Database
+version: '3.8'
+
+services:
+  # Main Application Service
+  enterprise-mcp-db:
+    build:
+      context: .
+      dockerfile: Dockerfile.production
+      args:
+        NODE_ENV: production
+    image: enterprise-mcp-db:latest
+    container_name: enterprise-mcp-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      REDIS_URL: redis://redis:6379
+      POSTGRES_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/enterprise_mcp_db
+      JWT_SECRET: ${JWT_SECRET}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      LOG_LEVEL: info
+      METRICS_ENABLED: "true"
+      HEALTH_CHECK_INTERVAL: 30000
+      MAX_MCPS: 50
+      AUTO_SCALING: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - enterprise-network
+    volumes:
+      - app-logs:/app/logs
+      - app-data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: enterprise-mcp-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: enterprise_mcp_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./src/deployment/init-scripts:/docker-entrypoint-initdb.d
+    networks:
+      - enterprise-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d enterprise_mcp_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: enterprise-mcp-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+      - ./src/deployment/redis.conf:/usr/local/etc/redis/redis.conf
+    networks:
+      - enterprise-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+
+  # NGINX Reverse Proxy with SSL
+  nginx:
+    image: nginx:alpine
+    container_name: enterprise-mcp-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./src/deployment/nginx.conf:/etc/nginx/nginx.conf
+      - ./src/deployment/ssl:/etc/nginx/ssl
+      - nginx-logs:/var/log/nginx
+    depends_on:
+      - enterprise-mcp-db
+    networks:
+      - enterprise-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  # Prometheus Monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: enterprise-mcp-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./src/deployment/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+    networks:
+      - enterprise-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1G
+
+  # Grafana Dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: enterprise-mcp-grafana
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD}
+      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./src/deployment/grafana/provisioning:/etc/grafana/provisioning
+      - ./src/deployment/grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - prometheus
+    networks:
+      - enterprise-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  # ElasticSearch for Logs
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.8.0
+    container_name: enterprise-mcp-elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+      - xpack.security.enabled=false
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    networks:
+      - enterprise-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+
+  # Kibana for Log Analysis
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.8.0
+    container_name: enterprise-mcp-kibana
+    restart: unless-stopped
+    ports:
+      - "5601:5601"
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+    networks:
+      - enterprise-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1G
+
+  # Logstash for Log Processing
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.8.0
+    container_name: enterprise-mcp-logstash
+    restart: unless-stopped
+    volumes:
+      - ./src/deployment/logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+      - app-logs:/usr/share/logstash/logs
+    depends_on:
+      - elasticsearch
+    networks:
+      - enterprise-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1G
+
+  # Backup Service
+  backup:
+    build:
+      context: ./src/deployment/backup
+      dockerfile: Dockerfile
+    container_name: enterprise-mcp-backup
+    restart: unless-stopped
+    environment:
+      POSTGRES_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/enterprise_mcp_db
+      BACKUP_SCHEDULE: "0 2 * * *"  # Daily at 2 AM
+      BACKUP_RETENTION_DAYS: 30
+      S3_BUCKET: ${BACKUP_S3_BUCKET}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+    volumes:
+      - backup-data:/backup
+      - postgres-data:/source/postgres:ro
+      - redis-data:/source/redis:ro
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - enterprise-network
+
+# Networks
+networks:
+  enterprise-network:
+    driver: bridge
+    name: enterprise-mcp-network
+
+# Volumes
+volumes:
+  postgres-data:
+    driver: local
+    name: enterprise-mcp-postgres-data
+  
+  redis-data:
+    driver: local
+    name: enterprise-mcp-redis-data
+  
+  app-logs:
+    driver: local
+    name: enterprise-mcp-app-logs
+  
+  app-data:
+    driver: local
+    name: enterprise-mcp-app-data
+  
+  nginx-logs:
+    driver: local
+    name: enterprise-mcp-nginx-logs
+  
+  prometheus-data:
+    driver: local
+    name: enterprise-mcp-prometheus-data
+  
+  grafana-data:
+    driver: local
+    name: enterprise-mcp-grafana-data
+  
+  elasticsearch-data:
+    driver: local
+    name: enterprise-mcp-elasticsearch-data
+  
+  backup-data:
+    driver: local
+    name: enterprise-mcp-backup-data

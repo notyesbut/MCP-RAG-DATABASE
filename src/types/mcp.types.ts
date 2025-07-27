@@ -1,0 +1,641 @@
+/**
+ * Core MCP (Model Context Protocol) Types for Enterprise Multi-MCP Smart Database System
+ * 
+ * Defines the foundational type system for intelligent data routing and management
+ * across multiple specialized MCP instances with HOT/COLD classification.
+ */
+
+/**
+ * Classification types for MCP instances based on access patterns and data temperature
+ */
+export type MCPType = 'hot' | 'cold';
+
+/**
+ * Domain categories for specialized MCP instances
+ * Extensible string union allows for dynamic domain creation
+ */
+export type MCPDomain = 'user' | 'chat' | 'stats' | 'logs' | 'archive' | 'security' | 'analytics' | 'cache' | 'general' | string;
+
+/**
+ * Performance tiers for MCP optimization strategies
+ */
+export type MCPPerformanceTier = 'realtime' | 'standard' | 'batch' | 'archive';
+
+/**
+ * Data consistency levels for cross-MCP operations
+ */
+export type ConsistencyLevel = 'strong' | 'eventual' | 'weak';
+
+/**
+ * Index strategies for optimizing data access patterns
+ */
+export type IndexStrategy = 
+  | 'btree'           // B-tree for range queries
+  | 'hash'            // Hash for exact matches
+  | 'fulltext'        // Full-text search indexing
+  | 'geospatial'      // Geographic data indexing
+  | 'temporal'        // Time-series optimization
+  | 'graph'           // Relationship-based indexing
+  | 'vector'          // Vector similarity indexing
+  | 'composite';      // Multi-column indexing
+
+/**
+ * Health status indicators for MCP instances
+ */
+export type MCPHealthStatus = 'healthy' | 'degraded' | 'unhealthy' | 'unreachable';
+
+/**
+ * MCP operational status
+ */
+export type MCPStatus = 'active' | 'inactive' | 'initializing' | 'error' | 'maintenance';
+
+/**
+ * Data access patterns for optimization
+ */
+export type AccessPattern = 'sequential' | 'random' | 'batch' | 'stream';
+
+/**
+ * Alias for MCPHealthStatus (compatibility)
+ */
+export type HealthStatus = MCPHealthStatus;
+
+/**
+ * Configuration for MCP instances (alias for MCPConfiguration)
+ */
+export type MCPConfig = MCPConfiguration;
+
+/**
+ * Performance metrics (alias for MCPMetrics)
+ */
+export type PerformanceMetrics = MCPMetrics;
+
+/**
+ * Migration status for data movement between MCPs
+ */
+export type MigrationStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'cancelled';
+
+/**
+ * Data classification types for intelligent routing
+ */
+export type DataClassification = 
+  | 'user_data'
+  | 'system_data'
+  | 'analytics_data'
+  | 'log_data'
+  | 'cache_data'
+  | 'archive_data'
+  | 'security_data'
+  | 'metadata'
+  | 'temporary'
+  | 'unknown';
+
+/**
+ * Data record interface for ingestion
+ */
+export interface DataRecord {
+  /** Unique identifier for the record */
+  id: string;
+  
+  /** The actual data payload */
+  data: any;
+  
+  /** Domain classification */
+  domain: MCPDomain;
+  
+  /** Record type */
+  type: string;
+  
+  /** Creation timestamp */
+  timestamp: number;
+  
+  /** Additional metadata */
+  metadata?: {
+    source?: string;
+    userId?: string;
+    sessionId?: string;
+    schema?: any;
+    options?: any;
+    batchId?: string;
+    batchIndex?: number;
+    [key: string]: any;
+  };
+}
+
+/**
+ * Routing decision from RAG₁
+ */
+export interface RoutingDecision {
+  /** Target MCP instances for storage */
+  targetMCPs: string[];
+  
+  /** Routing strategy used */
+  strategy: 'primary' | 'replicated' | 'sharded' | 'cached' | 'archived';
+  
+  /** Execution plan for storage */
+  executionPlan: RoutingExecutionStep[];
+  
+  /** Confidence in routing decision */
+  confidence: number;
+  
+  /** Reasoning for the routing decision */
+  reasoning: string;
+}
+
+/**
+ * Routing execution step
+ */
+export interface RoutingExecutionStep {
+  /** Step identifier */
+  stepId: string;
+  
+  /** Target MCP for this step */
+  targetMCP: string;
+  
+  /** Operation type */
+  operation: 'store' | 'index' | 'replicate' | 'validate';
+  
+  /** Step parameters */
+  parameters: Record<string, any>;
+  
+  /** Estimated duration in milliseconds */
+  estimatedDuration: number;
+  
+  /** Dependencies on other steps */
+  dependencies: string[];
+}
+
+/**
+ * Comprehensive metadata for MCP instance management and optimization
+ */
+export interface MCPMetadata {
+  /** Unique identifier for the MCP instance */
+  id: string;
+  
+  /** Domain specialization of this MCP */
+  domain: MCPDomain;
+  
+  /** Hot/Cold classification for performance optimization */
+  type: MCPType;
+  
+  /** Performance tier for resource allocation */
+  performanceTier: MCPPerformanceTier;
+  
+  /** Number of times this MCP has been accessed */
+  accessFrequency: number;
+  
+  /** Timestamp of last access (Unix timestamp) */
+  lastAccessed: number;
+  
+  /** Current number of records stored */
+  recordCount: number;
+  
+  /** Average record size in bytes */
+  averageRecordSize: number;
+  
+  /** Total storage size in bytes */
+  totalSize: number;
+  
+  /** Active indexing strategies */
+  indexStrategies: IndexStrategy[];
+  
+  /** Current health status */
+  healthStatus: MCPHealthStatus;
+  
+  /** Network location or connection details */
+  endpoint: string;
+  
+  /** Creation timestamp */
+  createdAt: number;
+  
+  /** Last update timestamp */
+  updatedAt: number;
+  
+  /** Configuration settings specific to this MCP */
+  configuration: MCPConfiguration;
+  
+  /** Performance metrics */
+  metrics: MCPMetrics;
+  
+  /** Data schema information (dynamic) */
+  schema?: MCPSchema;
+  
+  /** Migration history */
+  migrationHistory: MigrationRecord[];
+  
+  /** Related MCP instances for cross-references */
+  relatedMCPs: string[];
+  
+  /** Custom tags for organization and filtering */
+  tags: string[];
+}
+
+/**
+ * Configuration settings for MCP instances
+ */
+export interface MCPConfiguration {
+  /** Maximum number of records before triggering migration */
+  maxRecords: number;
+  
+  /** Maximum storage size in bytes before migration */
+  maxSize: number;
+  
+  /** Cache size in MB */
+  cacheSize: number;
+  
+  /** Connection pool size */
+  connectionPoolSize: number;
+  
+  /** Query timeout in milliseconds */
+  queryTimeout: number;
+  
+  /** Backup frequency in hours */
+  backupFrequency: number;
+  
+  /** Compression enabled */
+  compressionEnabled: boolean;
+  
+  /** Encryption enabled */
+  encryptionEnabled: boolean;
+  
+  /** Auto-indexing enabled */
+  autoIndexing: boolean;
+  
+  /** Replication factor */
+  replicationFactor: number;
+  
+  /** Consistency level for operations */
+  consistencyLevel: ConsistencyLevel;
+  
+  /** Custom configuration properties */
+  customProperties: Record<string, any>;
+}
+
+/**
+ * Performance metrics for MCP monitoring and optimization
+ */
+export interface MCPMetrics {
+  /** Average query response time in milliseconds */
+  averageResponseTime: number;
+  
+  /** Queries per second */
+  queryThroughput: number;
+  
+  /** Current CPU utilization percentage */
+  cpuUtilization: number;
+  
+  /** Current memory utilization percentage */
+  memoryUtilization: number;
+  
+  /** Current disk utilization percentage */
+  diskUtilization: number;
+  
+  /** Network I/O metrics */
+  networkIO: {
+    bytesIn: number;
+    bytesOut: number;
+    packetsIn: number;
+    packetsOut: number;
+  };
+  
+  /** Cache hit ratio */
+  cacheHitRatio: number;
+  
+  /** Error rate percentage */
+  errorRate: number;
+  
+  /** Active connections count */
+  activeConnections: number;
+  
+  /** Total successful operations */
+  successfulOperations: number;
+  
+  /** Total failed operations */
+  failedOperations: number;
+  
+  /** Last metrics update timestamp */
+  lastUpdated: number;
+}
+
+/**
+ * Dynamic schema information for MCP data structures
+ */
+export interface MCPSchema {
+  /** Schema version for evolution tracking */
+  version: string;
+  
+  /** Field definitions */
+  fields: Record<string, FieldDefinition>;
+  
+  /** Index definitions */
+  indexes: IndexDefinition[];
+  
+  /** Constraints and validation rules */
+  constraints: ConstraintDefinition[];
+  
+  /** Schema metadata */
+  metadata: {
+    createdAt: number;
+    updatedAt: number;
+    migrationPaths: string[];
+  };
+}
+
+/**
+ * Field definition for dynamic schema management
+ */
+export interface FieldDefinition {
+  /** Field data type */
+  type: 'string' | 'number' | 'boolean' | 'date' | 'object' | 'array' | 'binary';
+  
+  /** Is field required */
+  required: boolean;
+  
+  /** Is field indexed */
+  indexed: boolean;
+  
+  /** Default value */
+  defaultValue?: any;
+  
+  /** Validation constraints */
+  validation?: {
+    minLength?: number;
+    maxLength?: number;
+    pattern?: string;
+    minimum?: number;
+    maximum?: number;
+    enum?: any[];
+  };
+  
+  /** Field description */
+  description?: string;
+}
+
+/**
+ * Index definition for performance optimization
+ */
+export interface IndexDefinition {
+  /** Index name */
+  name: string;
+  
+  /** Index type/strategy */
+  type: IndexStrategy;
+  
+  /** Fields included in the index */
+  fields: string[];
+  
+  /** Is index unique */
+  unique: boolean;
+  
+  /** Index options */
+  options: Record<string, any>;
+  
+  /** Creation timestamp */
+  createdAt: number;
+}
+
+/**
+ * Constraint definition for data integrity
+ */
+export interface ConstraintDefinition {
+  /** Constraint name */
+  name: string;
+  
+  /** Constraint type */
+  type: 'unique' | 'foreign_key' | 'check' | 'not_null';
+  
+  /** Fields affected by constraint */
+  fields: string[];
+  
+  /** Constraint parameters */
+  parameters: Record<string, any>;
+  
+  /** Error message for constraint violations */
+  errorMessage: string;
+}
+
+/**
+ * Migration record for tracking data movement history
+ */
+export interface MigrationRecord {
+  /** Migration unique identifier */
+  id: string;
+  
+  /** Source MCP identifier */
+  sourceMCP: string;
+  
+  /** Destination MCP identifier */
+  destinationMCP: string;
+  
+  /** Number of records migrated */
+  recordCount: number;
+  
+  /** Size of data migrated in bytes */
+  dataSize: number;
+  
+  /** Migration status */
+  status: MigrationStatus;
+  
+  /** Migration start timestamp */
+  startedAt: number;
+  
+  /** Migration completion timestamp */
+  completedAt?: number;
+  
+  /** Migration reason */
+  reason: string;
+  
+  /** Migration strategy used */
+  strategy: 'copy' | 'move' | 'replicate';
+  
+  /** Error details if migration failed */
+  error?: {
+    code: string;
+    message: string;
+    details: any;
+  };
+  
+  /** Performance metrics for the migration */
+  metrics: {
+    throughput: number;
+    duration: number;
+    resourceUsage: Record<string, number>;
+  };
+}
+
+/**
+ * MCP operational capabilities
+ */
+export interface MCPCapabilities {
+  /** Supported query types */
+  queryTypes: ('select' | 'insert' | 'update' | 'delete' | 'aggregate' | 'search')[];
+  
+  /** Supported data types */
+  dataTypes: string[];
+  
+  /** Maximum concurrent connections */
+  maxConnections: number;
+  
+  /** Supported consistency levels */
+  consistencyLevels: ConsistencyLevel[];
+  
+  /** Transaction support */
+  transactionSupport: boolean;
+  
+  /** Backup capabilities */
+  backupSupport: boolean;
+  
+  /** Replication capabilities */
+  replicationSupport: boolean;
+  
+  /** Encryption capabilities */
+  encryptionSupport: boolean;
+  
+  /** Compression capabilities */
+  compressionSupport: boolean;
+  
+  /** Full-text search capabilities */
+  fullTextSearch: boolean;
+  
+  /** Geospatial query capabilities */
+  geospatialSupport: boolean;
+  
+  /** Vector similarity search */
+  vectorSearch: boolean;
+  
+  /** Real-time streaming capabilities */
+  streamingSupport: boolean;
+}
+
+/**
+ * MCP instance creation options
+ */
+export interface MCPCreationOptions {
+  /** Domain for the new MCP */
+  domain: MCPDomain;
+  
+  /** Initial type classification */
+  type: MCPType;
+  
+  /** Performance tier */
+  performanceTier: MCPPerformanceTier;
+  
+  /** Initial configuration */
+  configuration: Partial<MCPConfiguration>;
+  
+  /** Initial schema (optional) */
+  schema?: MCPSchema;
+  
+  /** Tags for organization */
+  tags?: string[];
+  
+  /** Custom metadata */
+  customMetadata?: Record<string, any>;
+}
+
+/**
+ * MCP query result interface
+ */
+export interface MCPQueryResult<T = any> {
+  /** Query results */
+  data: T[];
+  
+  /** Total count (may differ from data.length for paginated results) */
+  totalCount: number;
+  
+  /** Query execution metadata */
+  metadata: {
+    /** Execution time in milliseconds */
+    executionTime: number;
+    
+    /** MCP instance that handled the query */
+    mcpId: string;
+    
+    /** Query optimization strategy used */
+    optimizationStrategy: string;
+    
+    /** Cache hit status */
+    cacheHit: boolean;
+    
+    /** Index usage information */
+    indexesUsed: string[];
+    
+    /** Resource usage during query */
+    resourceUsage: {
+      cpu: number;
+      memory: number;
+      io: number;
+    };
+  };
+  
+  /** Pagination information */
+  pagination?: {
+    page: number;
+    pageSize: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  };
+  
+  /** Error information if query partially failed */
+  errors?: QueryError[];
+}
+
+/**
+ * Query error details
+ */
+export interface QueryError {
+  /** Error code */
+  code: string;
+  
+  /** Error message */
+  message: string;
+  
+  /** MCP instance where error occurred */
+  mcpId: string;
+  
+  /** Additional error details */
+  details?: any;
+  
+  /** Error timestamp */
+  timestamp: number;
+}
+
+/**
+ * Type guards for runtime type checking
+ */
+export const MCPTypeGuards = {
+  isMCPType: (value: any): value is MCPType => {
+    return typeof value === 'string' && ['hot', 'cold'].includes(value);
+  },
+  
+  isMCPDomain: (value: any): value is MCPDomain => {
+    return typeof value === 'string' && value.length > 0;
+  },
+  
+  isPerformanceTier: (value: any): value is MCPPerformanceTier => {
+    return typeof value === 'string' && 
+           ['realtime', 'standard', 'batch', 'archive'].includes(value);
+  },
+  
+  isHealthStatus: (value: any): value is MCPHealthStatus => {
+    return typeof value === 'string' && 
+           ['healthy', 'degraded', 'unhealthy', 'unreachable'].includes(value);
+  },
+  
+  isMCPMetadata: (value: any): value is MCPMetadata => {
+    return typeof value === 'object' && 
+           value !== null &&
+           typeof value.id === 'string' &&
+           MCPTypeGuards.isMCPDomain(value.domain) &&
+           MCPTypeGuards.isMCPType(value.type);
+  },
+  
+  isDataRecord: (value: any): value is DataRecord => {
+    return typeof value === 'object' &&
+           value !== null &&
+           typeof value.id === 'string' &&
+           value.data !== undefined &&
+           MCPTypeGuards.isMCPDomain(value.domain) &&
+           typeof value.type === 'string' &&
+           typeof value.timestamp === 'number';
+  }
+};
