@@ -8,7 +8,7 @@ import {
   QueryExecutionPlan, 
   MCPQueryCapability,
   AggregationStrategy 
-} from '../../types/query.types.js';
+} from '../../types/query.types';
 import { MCPRegistry } from '../../mcp/registry/MCPRegistry';
 
 export class QueryExecutionPlanner {

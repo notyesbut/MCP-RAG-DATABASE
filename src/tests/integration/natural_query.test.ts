@@ -468,7 +468,7 @@ describe('RAG₂ Advanced Error Handling and Resilience', () => {
 
   test('should handle MCP downtime gracefully', async () => {
     // Simulate MCP failure
-    mockRegistry.getMCPHealth = async () => ({ status: 'down', uptime: 0, memoryUsage: 0, cpuUsage: 0, diskUsage: 0 });
+    mockRegistry.getMCPHealth = async () => ({ status: 'healthy' as 'healthy', uptime: 0, memoryUsage: 0, cpuUsage: 0, diskUsage: 0 });
     
     const query: NaturalQuery = {
       raw: 'get user data',

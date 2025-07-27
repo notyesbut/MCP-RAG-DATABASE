@@ -304,19 +304,19 @@ class ApiServer {
      */
     private registerMCPFactories(): void {
         // Register UserMCP factory
-        this.mcpRegistry.registerMCPFactory(MCPType.USER, (metadata, config) => 
+        this.mcpRegistry.registerMCPFactory(MCPType.USER as any, (metadata, config) => 
             new UserMCP('user' as MCPDomain, MCPType.USER, config) as any);
 
         // Register ChatMCP factory
-        this.mcpRegistry.registerMCPFactory(MCPType.CHAT, (metadata, config) => 
+        this.mcpRegistry.registerMCPFactory(MCPType.CHAT as any, (metadata, config) => 
             new ChatMCP('chat' as MCPDomain, MCPType.CHAT, config) as any);
 
         // Register StatsMCP factory
-        this.mcpRegistry.registerMCPFactory(MCPType.STATS, (metadata, config) => 
+        this.mcpRegistry.registerMCPFactory(MCPType.STATS as any, (metadata, config) => 
             new StatsMCP('analytics' as MCPDomain, MCPType.STATS, config) as any);
 
         // Register LogsMCP factory
-        this.mcpRegistry.registerMCPFactory(MCPType.LOGS, (metadata, config) => 
+        this.mcpRegistry.registerMCPFactory(MCPType.LOGS as any, (metadata, config) => 
             new LogsMCP('analytics' as MCPDomain, MCPType.LOGS, config) as any);
 
         logger.info('✅ All MCP factories registered successfully');

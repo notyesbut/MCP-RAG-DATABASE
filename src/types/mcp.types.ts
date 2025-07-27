@@ -8,7 +8,19 @@
 /**
  * Classification types for MCP instances based on access patterns and data temperature
  */
-export type MCPType = 'hot' | 'cold';
+export type MCPTypeString = 'hot' | 'cold';
+
+/**
+ * MCP Type enum for backward compatibility
+ */
+export enum MCPType {
+  USER = 'user',
+  CHAT = 'chat',
+  STATS = 'stats',
+  LOGS = 'logs',
+  HOT = 'hot',
+  COLD = 'cold'
+}
 
 /**
  * Domain categories for specialized MCP instances
@@ -20,6 +32,16 @@ export type MCPDomain = 'user' | 'chat' | 'stats' | 'logs' | 'archive' | 'securi
  * Performance tiers for MCP optimization strategies
  */
 export type MCPPerformanceTier = 'realtime' | 'standard' | 'batch' | 'archive';
+
+/**
+ * MCP Tier enum for compatibility
+ */
+export enum MCPTier {
+  HOT = 'hot',
+  COLD = 'cold',
+  WARM = 'warm',
+  ARCHIVE = 'archive'
+}
 
 /**
  * Data consistency levels for cross-MCP operations
@@ -52,7 +74,27 @@ export type MCPStatus = 'active' | 'inactive' | 'initializing' | 'error' | 'main
 /**
  * Data access patterns for optimization
  */
-export type AccessPattern = 'sequential' | 'random' | 'batch' | 'stream';
+export type AccessPatternType = 'sequential' | 'random' | 'batch' | 'stream';
+
+/**
+ * Access pattern tracking interface
+ */
+export interface AccessPattern {
+  /** Access frequency */
+  frequency: number;
+  
+  /** Last accessed timestamp */
+  lastAccessed: number;
+  
+  /** Access history */
+  accessHistory: number[];
+  
+  /** Predicted next access */
+  predictedNextAccess: number;
+  
+  /** Access type */
+  accessType: string;
+}
 
 /**
  * Alias for MCPHealthStatus (compatibility)
@@ -77,7 +119,7 @@ export type MigrationStatus = 'pending' | 'in_progress' | 'completed' | 'failed'
 /**
  * Data classification types for intelligent routing
  */
-export type DataClassification = 
+export type DataClassificationType = 
   | 'user_data'
   | 'system_data'
   | 'analytics_data'
@@ -88,6 +130,71 @@ export type DataClassification =
   | 'metadata'
   | 'temporary'
   | 'unknown';
+
+/**
+ * Data classification enum for temporal access patterns
+ */
+export enum DataClassification {
+  REALTIME = 'realtime',
+  FREQUENT = 'frequent',
+  OCCASIONAL = 'occasional',
+  ARCHIVE = 'archive'
+}
+
+/**
+ * Security context for data classification
+ */
+export interface SecurityContext {
+  /** Security level (0-1 scale) */
+  level: number;
+  
+  /** Specific security requirements */
+  requirements: string[];
+}
+
+/**
+ * Compliance context for data classification
+ */
+export interface ComplianceContext {
+  /** Compliance level (0-1 scale) */
+  level: number;
+  
+  /** Specific compliance requirements */
+  requirements: string[];
+}
+
+/**
+ * Performance context for data classification
+ */
+export interface PerformanceContext {
+  /** Performance level (0-1 scale) */
+  level: number;
+  
+  /** Specific performance requirements */
+  requirements: string[];
+}
+
+/**
+ * Redundancy context for data classification
+ */
+export interface RedundancyContext {
+  /** Redundancy level (0-1 scale) */
+  level: number;
+  
+  /** Specific redundancy requirements */
+  requirements: string[];
+}
+
+/**
+ * Geographic context for data classification
+ */
+export interface GeographicContext {
+  /** Geographic constraint level (0-1 scale) */
+  level: number;
+  
+  /** Specific geographic requirements */
+  requirements: string[];
+}
 
 /**
  * Data record interface for ingestion
@@ -175,7 +282,7 @@ export interface MCPMetadata {
   domain: MCPDomain;
   
   /** Hot/Cold classification for performance optimization */
-  type: MCPType;
+  type: MCPTypeString;
   
   /** Performance tier for resource allocation */
   performanceTier: MCPPerformanceTier;
@@ -514,7 +621,7 @@ export interface MCPCreationOptions {
   domain: MCPDomain;
   
   /** Initial type classification */
-  type: MCPType;
+  type: MCPTypeString;
   
   /** Performance tier */
   performanceTier: MCPPerformanceTier;
@@ -639,3 +746,322 @@ export const MCPTypeGuards = {
            typeof value.timestamp === 'number';
   }
 };
+
+/**
+ * MCP Query interface
+ */
+export interface MCPQuery {
+  /** Query identifier */
+  id?: string;
+  
+  /** Target MCP IDs or domains */
+  targets?: string[] | MCPDomain[];
+  
+  /** Query type */
+  type: 'select' | 'insert' | 'update' | 'delete' | 'aggregate' | 'search';
+  
+  /** Query criteria */
+  criteria?: Record<string, any>;
+  
+  /** Query filters */
+  filters?: Record<string, any>;
+  
+  /** Target domain */
+  domain?: MCPDomain;
+  
+  /** Sort options */
+  sort?: Record<string, 1 | -1>;
+  
+  /** Limit results */
+  limit?: number;
+  
+  /** Skip results */
+  skip?: number;
+  
+  /** Projection fields */
+  projection?: string[];
+  
+  /** Query timeout */
+  timeout?: number;
+}
+
+/**
+ * Query Result (alias for MCPQueryResult)
+ */
+export type QueryResult<T = any> = MCPQueryResult<T>;
+
+/**
+ * Migration plan interface
+ */
+export interface MigrationPlan {
+  /** Plan identifier */
+  id: string;
+  
+  /** Source MCP */
+  source: string;
+  
+  /** Target MCP */
+  target: string;
+  
+  /** Records to migrate */
+  recordCount: number;
+  
+  /** Estimated duration */
+  estimatedDuration: number;
+  
+  /** Migration strategy */
+  strategy: 'copy' | 'move' | 'replicate';
+  
+  /** Execution steps */
+  steps: MigrationStep[];
+  
+  /** Priority level */
+  priority: 'low' | 'medium' | 'high' | 'critical';
+}
+
+/**
+ * Migration step interface
+ */
+export interface MigrationStep {
+  /** Step ID */
+  id: string;
+  
+  /** Step description */
+  description: string;
+  
+  /** Operation type */
+  operation: 'extract' | 'transform' | 'load' | 'validate';
+  
+  /** Estimated duration */
+  estimatedDuration: number;
+  
+  /** Dependencies */
+  dependencies: string[];
+}
+
+/**
+ * MCP Registry configuration
+ */
+export interface MCPRegistryConfig {
+  /** Maximum MCP instances */
+  maxInstances: number;
+  
+  /** Default MCP configuration */
+  defaultConfig: Partial<MCPConfiguration>;
+  
+  /** Auto-scaling enabled */
+  autoScaling: boolean;
+  
+  /** Health check interval */
+  healthCheckInterval: number;
+  
+  /** Maintenance window */
+  maintenanceWindow?: {
+    start: string;
+    end: string;
+    timezone: string;
+  };
+}
+
+/**
+ * MCP Factory interface
+ */
+export interface MCPFactory {
+  /** Factory name */
+  name: string;
+  
+  /** Create MCP instance */
+  create(config: MCPConfiguration): BaseMCP;
+  
+  /** Validate configuration */
+  validateConfig(config: MCPConfiguration): boolean;
+  
+  /** Get supported domains */
+  getSupportedDomains(): MCPDomain[];
+}
+
+/**
+ * MCP Instance interface
+ */
+export interface MCPInstance extends BaseMCP {
+  /** Instance ID */
+  id: string;
+  
+  /** Instance metadata */
+  metadata: MCPMetadata;
+  
+  /** Health status */
+  health: MCPHealth;
+  
+  /** Performance stats */
+  stats: MCPStats;
+  
+  /** The actual MCP implementation */
+  mcp?: BaseMCP;
+  
+  /** Average query time in ms */
+  averageQueryTime?: number;
+  
+  /** Error count */
+  errorCount?: number;
+  
+  /** Access count */
+  accessCount?: number;
+}
+
+/**
+ * MCP Health interface
+ */
+export interface MCPHealth {
+  /** Overall status */
+  status: MCPHealthStatus;
+  
+  /** Last check timestamp */
+  lastChecked: number;
+  
+  /** Response time in ms */
+  responseTime: number;
+  
+  /** Error count */
+  errorCount: number;
+  
+  /** Success rate percentage */
+  successRate: number;
+  
+  /** Health details */
+  details: {
+    database: boolean;
+    network: boolean;
+    memory: boolean;
+    cpu: boolean;
+  };
+  
+  /** CPU usage percentage */
+  cpuUsage?: number;
+}
+
+/**
+ * MCP Stats interface
+ */
+export interface MCPStats {
+  /** Total operations */
+  totalOperations: number;
+  
+  /** Successful operations */
+  successfulOperations: number;
+  
+  /** Failed operations */
+  failedOperations: number;
+  
+  /** Average response time */
+  averageResponseTime: number;
+  
+  /** Throughput per second */
+  throughput: number;
+  
+  /** Current connections */
+  activeConnections: number;
+  
+  /** Memory usage in bytes */
+  memoryUsage: number;
+  
+  /** CPU usage percentage */
+  cpuUsage: number;
+  
+  /** Disk usage in bytes */
+  diskUsage: number;
+  
+  /** Network I/O */
+  networkIO: {
+    bytesIn: number;
+    bytesOut: number;
+  };
+}
+
+/**
+ * Log Entry interface
+ */
+export interface LogEntry {
+  /** Log ID */
+  id: string;
+  
+  /** Timestamp */
+  timestamp: number;
+  
+  /** Log level */
+  level: 'debug' | 'info' | 'warn' | 'error' | 'fatal';
+  
+  /** Source MCP */
+  source: string;
+  
+  /** Log message */
+  message: string;
+  
+  /** Additional data */
+  data?: any;
+  
+  /** Stack trace for errors */
+  stack?: string;
+  
+  /** User ID if applicable */
+  userId?: string;
+  
+  /** Request ID for tracing */
+  requestId?: string;
+}
+
+/**
+ * Extended MCPConfiguration with additional properties
+ */
+export interface ExtendedMCPConfiguration extends MCPConfiguration {
+  /** MCP instance ID */
+  id?: string;
+  
+  /** MCP domain */
+  domain?: MCPDomain;
+  
+  /** MCP type */
+  type?: MCPTypeString;
+  
+  /** Backup strategy */
+  backupStrategy?: 'incremental' | 'full' | 'snapshot';
+}
+
+/**
+ * Extended MCPMetadata with additional properties
+ */
+export interface ExtendedMCPMetadata extends MCPMetadata {
+  /** MCP status */
+  status?: MCPStatus;
+  
+  /** Performance metrics (alias) */
+  performanceMetrics?: MCPMetrics;
+}
+
+/**
+ * Import BaseMCP interface for MCP Instance
+ */
+export interface BaseMCP {
+  id: string;
+  domain: MCPDomain;
+  type: MCPTypeString;
+  
+  // Core methods
+  store(record: DataRecord): Promise<void>;
+  query(query: MCPQuery): Promise<MCPQueryResult>;
+  update(id: string, data: any): Promise<void>;
+  delete(id: string): Promise<void>;
+  
+  // Health and monitoring
+  getHealth(): Promise<MCPHealth>;
+  getMetrics(): Promise<MCPMetrics>;
+  getLogs(filter?: any): Promise<LogEntry[]>;
+  getConfiguration(): MCPConfiguration;
+  
+  // Lifecycle
+  initialize(): Promise<void>;
+  shutdown(): Promise<void>;
+  
+  // Capabilities
+  getCapabilities(): MCPCapabilities;
+}

@@ -12,6 +12,8 @@ import {
   DataRecord,
   PerformanceMetrics,
   MCPType,
+  MCPTypeString,
+  MCPPerformanceTier,
   MCPDomain,
   MCPStatus,
   AccessPattern,
@@ -32,38 +34,68 @@ export abstract class BaseMCP extends EventEmitter {
   ) {
     super();
     
+    // Convert MCPType to MCPTypeString for metadata
+    const typeString: MCPTypeString = this.convertToTypeString(type);
+    
+    // Determine performance tier based on type
+    const performanceTier: MCPPerformanceTier = this.determinePerformanceTier(typeString);
+    
     this.metadata = {
       id: uuidv4(),
       domain,
-      type,
-      status: 'inactive',
+      type: typeString,
+      performanceTier,
+      healthStatus: 'healthy',
       accessFrequency: 0,
       lastAccessed: 0,
       recordCount: 0,
       averageRecordSize: 0,
       totalSize: 0,
       indexStrategies: [],
+      endpoint: `mcp://${domain}/${uuidv4()}`,
       createdAt: Date.now(),
       updatedAt: Date.now(),
-      migrationHistory: [],
-      performanceMetrics: {
-        avgReadLatency: 0,
-        avgWriteLatency: 0,
-        throughput: 0,
+      configuration: {
+        maxRecords: config.maxRecords || 100000,
+        maxSize: config.maxSize || (1024 * 1024 * 100),
+        compressionEnabled: config.compressionEnabled || false,
+        replicationFactor: config.replicationFactor || 1,
+        cacheSize: config.cacheSize || 50,
+        connectionPoolSize: config.connectionPoolSize || 10,
+        queryTimeout: config.queryTimeout || 30000,
+        backupFrequency: config.backupFrequency || 24,
+        replicationFactor: config.replicationFactor || 1
+      },
+      metrics: {
+        averageResponseTime: 0,
+        queryThroughput: 0,
+        cpuUtilization: 0,
+        memoryUtilization: 0,
+        diskUtilization: 0,
         errorRate: 0,
-        cacheHitRate: 0,
-        lastMeasured: Date.now()
+        networkIO: {
+          bytesIn: 0,
+          bytesOut: 0,
+          packetsIn: 0,
+          packetsOut: 0
+        },
+        cacheHitRatio: 0,
+        activeConnections: 0,
+        successfulOperations: 0,
+        failedOperations: 0,
+        totalOperations: 0
       }
     };
 
     this.config = {
-      maxRecords: 100000,
-      maxSize: 1024 * 1024 * 100, // 100MB
-      compressionEnabled: false,
-      backupStrategy: 'scheduled',
-      replicationFactor: 1,
-      shardingStrategy: 'hash',
-      ...config
+      maxRecords: config.maxRecords || 100000,
+      maxSize: config.maxSize || (1024 * 1024 * 100), // 100MB
+      compressionEnabled: config.compressionEnabled || false,
+      replicationFactor: config.replicationFactor || 1,
+      cacheSize: config.cacheSize || 50,
+      connectionPoolSize: config.connectionPoolSize || 10,
+      queryTimeout: config.queryTimeout || 30000,
+      backupFrequency: config.backupFrequency || 24
     };
 
     this.capabilities = this.defineCapabilities();
@@ -76,7 +108,7 @@ export abstract class BaseMCP extends EventEmitter {
 
   // Core MCP Operations
   async initialize(): Promise<void> {
-    this.metadata.status = 'active';
+    this.metadata.healthStatus = 'healthy';
     this.optimizeForDomain();
     this.emit('initialized', this.metadata);
   }
@@ -253,18 +285,18 @@ export abstract class BaseMCP extends EventEmitter {
     cpuUsage: number;
     diskUsage: number;
   }> {
-    const metrics = this.metadata.performanceMetrics;
+    const metrics = this.metadata.metrics;
     let status: 'healthy' | 'degraded' | 'unhealthy' = 'healthy';
 
     if (metrics.errorRate > 0.1) status = 'unhealthy';
-    if (metrics.avgReadLatency > 1000 || metrics.avgWriteLatency > 2000) status = 'degraded';
+    if (metrics.averageResponseTime > 1000) status = 'degraded';
     
     // Calculate uptime from creation time
     const uptime = Date.now() - this.metadata.createdAt;
     
     // Simulate memory, CPU, and disk usage based on record count and performance
     const memoryUsage = Math.min(90, (this.records.size / this.config.maxRecords) * 100);
-    const cpuUsage = Math.min(80, metrics.avgReadLatency / 10);
+    const cpuUsage = Math.min(80, metrics.averageResponseTime / 10);
     const diskUsage = Math.min(95, (this.metadata.totalSize || 0) / this.config.maxSize * 100);
     
     return { status, uptime, memoryUsage, cpuUsage, diskUsage };
@@ -289,8 +321,8 @@ export abstract class BaseMCP extends EventEmitter {
       totalRecords: this.records.size,
       queryCount: this.metadata.accessFrequency,
       lastAccess: new Date(this.metadata.lastAccessed).toISOString(),
-      avgQueryTime: this.metadata.performanceMetrics.avgReadLatency,
-      errorRate: this.metadata.performanceMetrics.errorRate,
+      avgQueryTime: this.metadata.metrics.averageResponseTime,
+      errorRate: this.metadata.metrics.errorRate,
       storageUsed: this.metadata.totalSize || 0,
       indexCount: this.indices.size,
       memoryUsage: health.memoryUsage,
@@ -398,19 +430,25 @@ export abstract class BaseMCP extends EventEmitter {
 
   private updateMetrics(startTime: number, operation: string): void {
     const duration = Date.now() - startTime;
-    const metrics = this.metadata.performanceMetrics;
+    const metrics = this.metadata.metrics;
     
     if (operation === 'read') {
-      metrics.avgReadLatency = this.calculateMovingAverage(metrics.avgReadLatency, duration);
+      metrics.averageResponseTime = this.calculateMovingAverage(metrics.averageResponseTime, duration);
     } else if (operation === 'write') {
-      metrics.avgWriteLatency = this.calculateMovingAverage(metrics.avgWriteLatency, duration);
+      // Update query throughput
+      metrics.queryThroughput = this.calculateQueryThroughput();
     }
-    
-    metrics.lastMeasured = Date.now();
   }
 
   private calculateMovingAverage(current: number, newValue: number, weight: number = 0.1): number {
     return current * (1 - weight) + newValue * weight;
+  }
+
+  private calculateQueryThroughput(): number {
+    // Calculate queries per second based on access frequency
+    const now = Date.now();
+    const timeSinceCreation = (now - this.metadata.createdAt) / 1000; // in seconds
+    return timeSinceCreation > 0 ? this.metadata.accessFrequency / timeSinceCreation : 0;
   }
 
   private async performCleanup(): Promise<void> {
@@ -425,7 +463,7 @@ export abstract class BaseMCP extends EventEmitter {
   }
 
   private handleError(operation: string, error: Error): void {
-    const metrics = this.metadata.performanceMetrics;
+    const metrics = this.metadata.metrics;
     metrics.errorRate = this.calculateMovingAverage(metrics.errorRate, 1, 0.05);
     
     this.emit('error', {
@@ -445,10 +483,60 @@ export abstract class BaseMCP extends EventEmitter {
   }
 
   public get tier(): MCPType {
-    return this.metadata.type;
+    // Convert MCPTypeString back to MCPType
+    if (this.metadata.type === 'hot') {
+      return MCPType.HOT;
+    }
+    return MCPType.COLD;
   }
 
   public async getLogs(options: { limit?: number; level?: string; }): Promise<any[]> {
     return [];
+  }
+
+  // Additional required properties and methods
+  public get domain(): MCPDomain {
+    return this.metadata.domain;
+  }
+
+  public get type(): MCPType {
+    return this.tier;
+  }
+
+  public async update(record: DataRecord): Promise<boolean> {
+    // Update is essentially a store operation
+    return this.store(record);
+  }
+
+  public async shutdown(): Promise<void> {
+    // Clean up resources
+    this.metadata.healthStatus = 'unhealthy';
+    this.records.clear();
+    this.indices.clear();
+    this.emit('shutdown', this.metadata);
+  }
+
+  // Helper methods for type conversion
+  private convertToTypeString(type: MCPType | string): MCPTypeString {
+    // Handle direct MCPTypeString values
+    if (type === 'hot' || type === 'cold') {
+      return type;
+    }
+    
+    // Handle MCPType enum values
+    if (type === MCPType.HOT || type === 'hot') {
+      return 'hot';
+    }
+    
+    // Default to 'cold' for all other types
+    return 'cold';
+  }
+
+  private determinePerformanceTier(type: MCPTypeString): MCPPerformanceTier {
+    // Determine performance tier based on hot/cold classification
+    if (type === 'hot') {
+      return 'realtime';
+    }
+    return 'standard';
   }
 }

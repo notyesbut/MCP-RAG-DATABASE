@@ -4,6 +4,7 @@
  */
 
 import { EventEmitter } from 'events';
+import { v4 as uuidv4 } from 'uuid';
 import { BaseMCP } from './base_mcp';
 import { UserMCP } from '../specialized/user_mcp';
 import { ChatMCP } from '../specialized/chat_mcp';
@@ -18,7 +19,6 @@ import {
   MigrationPlan,
   MCPType,
   MCPDomain, 
-  MCPRegistryConfig,
   MCPFactory,
   MCPInstance,
   MCPHealth,
@@ -44,6 +44,13 @@ interface RegistryConfiguration {
     compressionEnabled: boolean;
     archiveStorage: string;      // Storage location for archived MCPs
   };
+}
+
+// Extended config type for registry operations
+interface MCPRegistryConfig extends MCPConfig {
+  id: string;
+  domain: MCPDomain;
+  type: MCPType;
 }
 
 export class MCPRegistry extends EventEmitter {
@@ -84,21 +91,50 @@ export class MCPRegistry extends EventEmitter {
   }
 
   // MCP Registration and Management
-  async registerMCP(config: MCPConfig): Promise<string> {
+  async registerMCP(config: MCPRegistryConfig): Promise<string> {
     try {
       // Create MCP instance based on domain
       const mcp = await this.createMCPInstance(config);
       await mcp.initialize();
 
       const instance: MCPInstance = {
-        mcp,
+        id: mcp.getMetadata().id,
         metadata: mcp.getMetadata(),
-        lastAccessed: Date.now(),
-        accessCount: 0,
-        averageQueryTime: 0,
-        errorCount: 0,
-        isHealthy: true
-      };
+        health: {
+          status: 'healthy',
+          lastChecked: Date.now(),
+          uptime: 0,
+          errorCount: 0,
+          responseTime: 0
+        },
+        stats: {
+          totalQueries: 0,
+          totalWrites: 0,
+          totalReads: 0,
+          averageResponseTime: 0,
+          throughput: 0,
+          errorRate: 0,
+          lastHourStats: {
+            queries: 0,
+            writes: 0,
+            reads: 0,
+            errors: 0
+          }
+        },
+        mcp,
+        // Implement BaseMCP interface methods
+        type: mcp.type,
+        domain: mcp.domain,
+        initialize: () => mcp.initialize(),
+        query: (q) => mcp.query(q),
+        create: (r) => mcp.create(r),
+        update: (r) => mcp.update(r),
+        delete: (id) => mcp.delete(id),
+        getMetrics: () => mcp.getMetrics(),
+        getMetadata: () => mcp.getMetadata(),
+        getCapabilities: () => mcp.getCapabilities(),
+        shutdown: () => mcp.shutdown()
+      } as MCPInstance;
 
       this.instances.set(config.id, instance);
       this.updateRouting(config.id, config.domain, config.type);
@@ -151,12 +187,25 @@ export class MCPRegistry extends EventEmitter {
         const instance = this.instances.get(mcpId)!;
         const startTime = Date.now();
         
-        const result = await instance.mcp.query(query.filters);
+        const records = await instance.mcp.query(query.filters || {});
         
         // Update metrics
         this.updateInstanceMetrics(mcpId, Date.now() - startTime, false);
         
-        return { records: result, mcpId };
+        // Return MCPQueryResult format
+        const queryResult: QueryResult = {
+          data: records,
+          totalCount: records.length,
+          metadata: {
+            executionTime: Date.now() - startTime,
+            mcpId,
+            optimizationStrategy: 'standard',
+            cacheHit: false,
+            indexesUsed: []
+          }
+        };
+        
+        return queryResult;
       } catch (error) {
         this.updateInstanceMetrics(mcpId, 0, true);
         this.emit('query:error', { mcpId, query, error });
@@ -183,7 +232,7 @@ export class MCPRegistry extends EventEmitter {
   }
 
   // MCP Creation Factory
-  private async createMCPInstance(config: MCPConfig): Promise<BaseMCP> {
+  private async createMCPInstance(config: MCPRegistryConfig): Promise<BaseMCP> {
     switch (config.domain) {
       case 'user':
         return new UserMCP(config.domain, config.type, config);
@@ -314,21 +363,24 @@ export class MCPRegistry extends EventEmitter {
     try {
       const migrationPlan: MigrationPlan = {
         id: uuidv4(),
-        sourceMcpId: mcpId,
-        targetTier: targetType,
+        source: mcpId,
+        target: `${mcpId}-${targetType}`,
         strategy: 'copy',
-        estimatedDuration: 0,
-        estimatedCost: 0,
-        priority: 'medium',
-        scheduledTime: new Date(),
-        dependencies: [],
-        rollbackPlan: { strategy: 'revert' }
+        status: 'pending',
+        progress: 0,
+        startTime: Date.now(),
+        estimatedDuration: 60000, // 1 minute estimate
+        metadata: {
+          targetType,
+          reason: 'hot-cold-classification'
+        }
       };
 
       // Create new configuration with target type
-      const newConfig: MCPConfig = {
+      const newConfig: MCPRegistryConfig = {
         ...instance.mcp.getConfiguration(),
         id: `${mcpId}-${targetType}`,
+        domain: instance.metadata.domain,
         type: targetType
       };
 
@@ -595,7 +647,7 @@ export class MCPRegistry extends EventEmitter {
 
   public async createMCP(options: { type: string, tier: string, config: any, tags: string[] }): Promise<string> {
     const id = uuidv4();
-    const config: MCPConfig = {
+    const config: MCPRegistryConfig = {
       id,
       domain: options.type as MCPDomain,
       type: options.tier as MCPType,

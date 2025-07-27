@@ -11,11 +11,11 @@ import {
   RAG2Config,
   MCPQueryCapability,
   AggregationStrategy
-} from '../../types/query.types.js';
+} from '../../types/query.types';
 
-import { NaturalLanguageParser } from './parser.js';
-import { QueryExecutionPlanner } from './planner.js';
-import { ResultAggregator, MCPResult } from './aggregator.js';
+import { NaturalLanguageParser } from './parser';
+import { QueryExecutionPlanner } from './planner';
+import { ResultAggregator, MCPResult } from './aggregator';
 import { MCPRegistry } from '../../mcp/registry/MCPRegistry';
 
 export class RAG2Controller {
