@@ -538,11 +538,9 @@ export class LogsMCP extends BaseMCP {
     return null;
   }
 
-  async update(id: string, data: any, options?: any): Promise<any> {
-    const record = await this.retrieve(id);
-    if (!record) return { success: false };
-    const updatedRecord = { ...record, ...data };
-    return this.store(updatedRecord);
+  override async update(record: DataRecord): Promise<boolean> {
+    // Update is essentially a store operation
+    return this.store(record);
   }
 
   async delete(id: string, options?: any): Promise<any> {

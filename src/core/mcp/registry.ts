@@ -383,7 +383,7 @@ export class MCPRegistry extends EventEmitter {
     // Check migration cooldown
     const lastMigrations = this.migrationHistory.get(mcpId) || [];
     const lastMigration = lastMigrations[lastMigrations.length - 1];
-    if (lastMigration && Date.now() - lastMigration.scheduledTime.getTime() < this.configuration.migrationCooldown) {
+    if (lastMigration && lastMigration.scheduledTime && Date.now() - lastMigration.scheduledTime < this.configuration.migrationCooldown) {
       return false;
     }
 
@@ -392,11 +392,14 @@ export class MCPRegistry extends EventEmitter {
         id: uuidv4(),
         source: mcpId,
         target: `${mcpId}-${targetType}`,
+        recordCount: instance.stats.totalRecords || 0,
+        estimatedDuration: 60000, // 1 minute estimate
         strategy: 'copy',
+        steps: [],
+        priority: 'medium',
         status: 'pending',
         progress: 0,
         startTime: Date.now(),
-        estimatedDuration: 60000, // 1 minute estimate
         metadata: {
           targetType,
           reason: 'hot-cold-classification'
@@ -405,7 +408,7 @@ export class MCPRegistry extends EventEmitter {
 
       // Create new configuration with target type
       const newConfig: MCPRegistryConfig = {
-        ...instance.mcp.getConfiguration(),
+        ...(instance.mcp ? instance.mcp.getConfiguration() : {}),
         id: `${mcpId}-${targetType}`,
         domain: instance.metadata.domain,
         type: targetType
@@ -520,8 +523,10 @@ export class MCPRegistry extends EventEmitter {
 
     // Try to restart the MCP
     try {
-      await instance.mcp.shutdown();
-      await instance.mcp.initialize();
+      if (instance.mcp) {
+        await instance.mcp.shutdown();
+        await instance.mcp.initialize();
+      }
       
       instance.health.status = 'healthy';
       this.updateRouting(mcpId, instance.metadata.domain, instance.metadata.type);
@@ -573,10 +578,10 @@ export class MCPRegistry extends EventEmitter {
     if (!instance) return;
 
     instance.lastAccessed = Date.now();
-    instance.accessCount++;
+    instance.accessCount = (instance.accessCount || 0) + 1;
     
     if (isError) {
-      instance.errorCount++;
+      instance.errorCount = (instance.errorCount || 0) + 1;
     } else {
       // Update average query time
       instance.averageQueryTime = ((instance.averageQueryTime || 0) + queryTime) / 2;

@@ -340,6 +340,12 @@ export interface MCPMetadata {
  * Configuration settings for MCP instances
  */
 export interface MCPConfiguration {
+  /** MCP domain */
+  domain?: MCPDomain;
+  
+  /** MCP type */
+  type?: MCPTypeString;
+  
   /** Maximum number of records before triggering migration */
   maxRecords: number;
   
@@ -826,6 +832,15 @@ export interface MigrationPlan {
   
   /** Status */
   status?: 'pending' | 'running' | 'completed' | 'failed';
+  
+  /** Progress percentage */
+  progress?: number;
+  
+  /** Start time */
+  startTime?: number;
+  
+  /** Metadata */
+  metadata?: any;
 }
 
 /**
