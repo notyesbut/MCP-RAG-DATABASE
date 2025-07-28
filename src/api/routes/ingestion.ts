@@ -18,6 +18,7 @@ import { DataRecord, MCPDomain } from '../../types/mcp.types';
 import { logger } from '../../utils/logger';
 import { requirePermission } from '../middleware/auth';
 import { config } from '../../api/config/config';
+import { asyncHandler, asyncAuthHandler } from '../utils/asyncHandler';
 import { RAG1Controller } from '../../rag/ingest/rag1';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -103,7 +104,7 @@ const batchIngestionSchema = z.object({
 router.post('/single', 
   ingestionRateLimit,
   requirePermission(['ingest:write']),
-  async (req: AuthenticatedRequest, res: Response) => {
+  asyncAuthHandler(async (req: AuthenticatedRequest, res: Response) => {
     const startTime = Date.now();
     const requestId = req.headers['x-request-id'] as string || uuidv4();
 
@@ -170,7 +171,7 @@ router.post('/single',
         requestId,
       } as ApiResponse);
     }
-  }
+  })
 );
 
 /**
@@ -196,7 +197,7 @@ router.post('/single',
 router.post('/batch',
   ingestionRateLimit,
   requirePermission(['ingest:write', 'ingest:batch']),
-  async (req: AuthenticatedRequest, res: Response) => {
+  asyncAuthHandler(async (req: AuthenticatedRequest, res: Response) => {
     const startTime = Date.now();
     const requestId = req.headers['x-request-id'] as string || uuidv4();
 
@@ -257,7 +258,7 @@ router.post('/batch',
         requestId
       } as ApiResponse);
     }
-  }
+  })
 );
 
 /**
@@ -282,7 +283,7 @@ router.post('/batch',
  */
 router.get('/status/:id',
   requirePermission(['ingest:read']),
-  async (req: AuthenticatedRequest, res: Response) => {
+  asyncAuthHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
     const requestId = req.headers['x-request-id'] as string || uuidv4();
 
@@ -315,7 +316,7 @@ router.get('/status/:id',
         requestId
       } as ApiResponse);
     }
-  }
+  })
 );
 
 /**
@@ -344,7 +345,7 @@ router.get('/status/:id',
  */
 router.get('/history',
   requirePermission(['ingest:read']),
-  async (req: AuthenticatedRequest, res: Response) => {
+  asyncAuthHandler(async (req: AuthenticatedRequest, res: Response) => {
     const requestId = req.headers['x-request-id'] as string || uuidv4();
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const limit = Math.min(100, parseInt(req.query.limit as string) || 20);
@@ -375,7 +376,7 @@ router.get('/history',
         requestId
       } as ApiResponse);
     }
-  }
+  })
 );
 
 /**
@@ -398,7 +399,7 @@ router.get('/history',
  */
 router.post('/validate',
   requirePermission(['ingest:validate']),
-  async (req: AuthenticatedRequest, res: Response) => {
+  asyncAuthHandler(async (req: AuthenticatedRequest, res: Response) => {
     const requestId = req.headers['x-request-id'] as string || uuidv4();
 
     try {
@@ -430,7 +431,7 @@ router.post('/validate',
         requestId
       } as ApiResponse);
     }
-  }
+  })
 );
 
   /**
@@ -466,7 +467,7 @@ router.post('/validate',
     ingestionRateLimit,
     requirePermission(['ingest:write', 'ingest:file']),
     upload.array('files', 10),
-    async (req: AuthenticatedRequest, res: Response) => {
+    asyncAuthHandler(async (req: AuthenticatedRequest, res: Response) => {
       const startTime = Date.now();
       const requestId = req.headers['x-request-id'] as string || uuidv4();
 
@@ -550,7 +551,7 @@ router.post('/validate',
           requestId,
         } as ApiResponse);
       }
-    }
+    }));
   );
 
   /**
@@ -577,7 +578,7 @@ router.post('/validate',
   router.post('/stream',
     ingestionRateLimit,
     requirePermission(['ingest:write', 'ingest:stream']),
-    async (req: AuthenticatedRequest, res: Response) => {
+    asyncAuthHandler(async (req: AuthenticatedRequest, res: Response) => {
       const requestId = req.headers['x-request-id'] as string || uuidv4();
 
       try {
@@ -613,7 +614,7 @@ router.post('/validate',
           requestId
         } as ApiResponse);
       }
-    }
+    }));
   );
 
   return router;

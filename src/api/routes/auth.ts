@@ -15,6 +15,7 @@ import {
 import { generateToken, optionalAuth } from '../middleware/auth';
 import { logger, authLogger } from '../../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
+import { asyncHandler, asyncAuthHandler } from '../utils/asyncHandler';
 
 const router = Router();
 
@@ -395,7 +396,7 @@ router.post('/register',
  */
 router.get('/profile',
   optionalAuth,
-  async (req: AuthenticatedRequest, res: Response) => {
+  asyncAuthHandler(async (req: AuthenticatedRequest, res: Response) => {
     const requestId = req.headers['x-request-id'] as string || uuidv4();
 
     if (!req.user) {
@@ -422,7 +423,7 @@ router.get('/profile',
       timestamp: new Date().toISOString(),
       requestId
     } as ApiResponse);
-  }
+  }));
 );
 
 /**
@@ -462,7 +463,7 @@ router.get('/profile',
 router.post('/change-password',
   authRateLimit,
   optionalAuth,
-  async (req: AuthenticatedRequest, res: Response) => {
+  asyncAuthHandler(async (req: AuthenticatedRequest, res: Response) => {
     const requestId = req.headers['x-request-id'] as string || uuidv4();
 
     if (!req.user) {
@@ -531,7 +532,7 @@ router.post('/change-password',
         requestId
       } as ApiResponse);
     }
-  }
+  }));
 );
 
 /**
@@ -548,7 +549,7 @@ router.post('/change-password',
  */
 router.post('/logout',
   optionalAuth,
-  async (req: AuthenticatedRequest, res: Response) => {
+  asyncAuthHandler(async (req: AuthenticatedRequest, res: Response) => {
     const requestId = req.headers['x-request-id'] as string || uuidv4();
 
     if (req.user) {
@@ -567,7 +568,7 @@ router.post('/logout',
       timestamp: new Date().toISOString(),
       requestId
     } as ApiResponse);
-  }
+  }));
 );
 
 /**
@@ -586,7 +587,7 @@ router.post('/logout',
  */
 router.post('/refresh',
   optionalAuth,
-  async (req: AuthenticatedRequest, res: Response) => {
+  asyncAuthHandler(async (req: AuthenticatedRequest, res: Response) => {
     const requestId = req.headers['x-request-id'] as string || uuidv4();
 
     if (!req.user) {
@@ -628,7 +629,7 @@ router.post('/refresh',
         requestId
       } as ApiResponse);
     }
-  }
+  }));
 );
 
 export default router;

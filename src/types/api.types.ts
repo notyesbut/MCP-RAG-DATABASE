@@ -30,6 +30,8 @@ export interface User {
   createdAt: Date;
   /** Timestamp of the user's last login (optional). */
   lastLogin?: Date;
+  /** Hashed password (internal use only). */
+  passwordHash?: string;
 }
 
 /**
@@ -38,9 +40,9 @@ export interface User {
  */
 export interface AuthenticatedRequest extends Request {
   /** The user object attached to the request after successful authentication. */
-  user?: User;
+  user: User | undefined;
   /** The JWT token extracted from the request. */
-  token?: string;
+  token: string | undefined;
 }
 
 /**

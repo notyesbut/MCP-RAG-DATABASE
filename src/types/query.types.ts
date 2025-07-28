@@ -390,6 +390,16 @@ export interface QueryExecutionPlan {
   
   /** Optimization notes */
   optimizations: string[];
+  
+  /** Execution strategy */
+  strategy?: {
+    type: 'sequential' | 'parallel' | 'hybrid';
+    estimatedTotalTime: number;
+    resourceRequirements: ResourceRequirements;
+  };
+  
+  /** Fallback plans */
+  fallbacks?: any[];
 }
 
 /**
@@ -487,6 +497,27 @@ export interface QueryResult {
     };
   };
   
+  /** Query metadata */
+  metadata?: {
+    executionTime: number;
+    mcpId: string;
+    optimizationStrategy: string;
+    cacheHit: boolean;
+    indexesUsed: string[];
+    resourceUsage: {
+      cpu: number;
+      memory: number;
+      io: number;
+    };
+  };
+  
+  /** Query sources */
+  sources?: Array<{
+    mcpId: string;
+    recordCount: number;
+    queryTime: number;
+  }>;
+  
   /** Query insights and explanations */
   insights: {
     interpretation: string;
@@ -495,18 +526,26 @@ export interface QueryResult {
   };
   
   /** Errors encountered */
-  errors: Array<{
+  errors?: Array<{
     mcpId: string;
     error: string;
-    severity: 'low' | 'medium' | 'high' | 'critical';
+    severity: 'warning' | 'error' | 'critical';
     handlingStrategy: string;
   }>;
   
   /** Caching information */
   caching: {
     cached: boolean;
+    cacheKey?: string;
     cacheTTL?: number;
+    cacheHitRate?: number;
   };
+  
+  /** Results from query (alternative to data) */
+  results?: any[];
+  
+  /** Learned patterns */
+  learnedPatterns?: string[];
 }
 
 /**
@@ -698,6 +737,7 @@ export interface QueryFilter {
  * Filter operators
  */
 export type FilterOperator = 
+  | 'eq'
   | 'equals'
   | 'not_equals'
   | 'greater_than'
@@ -836,7 +876,7 @@ export interface QueryExecutionPlan {
   resourceRequirements: ResourceRequirements;
   
   /** Optimization strategy */
-  optimizationStrategy: OptimizationStrategy;
+  optimizationStrategy: OptimizationStrategy | 'standard';
   
   /** Parallelization opportunities */
   parallelization: ParallelizationPlan;
@@ -902,9 +942,9 @@ export interface ResourceRequirements {
 }
 
 /**
- * Optimization strategy
+ * Optimization strategy details
  */
-export interface OptimizationStrategy {
+export interface OptimizationStrategyDetails {
   /** Strategy name */
   name: string;
   
@@ -1135,6 +1175,11 @@ export type OptimizationType =
   | 'parallelization'
   | 'data_placement'
   | 'resource_allocation';
+
+/**
+ * Optimization strategy type
+ */
+export type OptimizationStrategy = 'standard' | 'aggressive' | 'balanced' | 'minimal';
 
 /**
  * Query execution result

@@ -10,7 +10,8 @@ import {
   QueryExecutionPlan,
   RAG2Config,
   MCPQueryCapability,
-  QuerySource
+  QuerySource,
+  QueryIntentDetails
 } from '../../types/query.types';
 
 import { NaturalLanguageParser } from './parser';
@@ -41,7 +42,16 @@ export class RAG2Controller {
    * This is where the magic happens - NO MORE SQL!
    */
   async query(query: string, context?: any, options?: any): Promise<QueryResult> {
-    const naturalQuery: NaturalQuery = { raw: query, context, options };
+    const naturalQuery: NaturalQuery = { 
+      raw: query, 
+      context,
+      preferences: {
+        responseFormat: options?.responseFormat || 'json',
+        explanationLevel: options?.explanationLevel || 'basic',
+        cachePreference: options?.cachePreference || 'smart',
+        maxResults: options?.maxResults || 100
+      }
+    };
     return this.processNaturalQuery(naturalQuery);
   }
 
@@ -279,8 +289,8 @@ export class RAG2Controller {
     duration: number
   ): void {
     // Record performance for each MCP
-    if (result.metadata.sources) {
-      for (const source of result.metadata.sources) {
+    if (result.data?.metadata?.sources) {
+      for (const source of result.data.metadata.sources) {
         this.planner.recordPerformance(source.mcpId, source.queryTime);
       }
     }
@@ -289,16 +299,16 @@ export class RAG2Controller {
     this.recordQueryPattern(query.raw, interpreted.intents[0], duration);
     
     // Learn optimal MCP routing
-    this.recordMCPRouting(interpreted.entities.dataType, interpreted.targetMCPs.map(m => m.mcpId));
+    this.recordMCPRouting(interpreted.entities.dataType, interpreted.targetMCPs);
   }
 
   /**
    * Utility methods for learning
    */
-  private recordQueryPattern(query: string, intent: string | undefined, duration: number): void {
+  private recordQueryPattern(query: string, intent: QueryIntentDetails | undefined, duration: number): void {
     // This would update the learning database
     // For now, we'll just log it
-    console.log(`Learning: Query "${query}" with intent "${intent}" took ${duration}ms`);
+    console.log(`Learning: Query "${query}" with intent "${intent?.type}" took ${duration}ms`);
   }
 
   private recordMCPRouting(dataType: string, mcpIds: string[]): void {
@@ -341,8 +351,8 @@ export class RAG2Controller {
    */
   private isCriticalMCP(mcpId: string, interpreted: InterpretedQuery): boolean {
     // Primary data MCPs are critical
-    const primaryMCP = interpreted.targetMCPs.find(m => m.priority === 1);
-    if (primaryMCP && primaryMCP.mcpId === mcpId) {
+    // targetMCPs is now an array of strings, not objects
+    if (interpreted.targetMCPs[0] === mcpId) {
       return true;
     }
     

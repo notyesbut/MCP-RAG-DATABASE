@@ -14,10 +14,13 @@
     "test:integration:mocha": "mocha --require ts-node/register 'src/tests/integration/**/*.test.ts' --timeout 60000",
     "test:performance": "jest tests/performance",
     "test:rag": "jest tests/integration/rag_systems_integration.test.ts",
-    "build": "tsc",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "health": "curl -s http://localhost:3000/api/v1/health | jq",
+    "metrics": "curl -s http://localhost:3000/api/v1/metrics | jq",
+    "test:full": "npm run build && npm run test && npm run test:rag",
+    "monitor": "watch -n 5 'npm run metrics'"
   },
   "keywords": [
     "database",
@@ -31,6 +34,10 @@
   "author": "Enterprise Development Team",
   "license": "MIT",
   "devDependencies": {
+    "@babel/plugin-proposal-class-properties": "^7.18.6",
+    "@babel/plugin-proposal-decorators": "^7.28.0",
+    "@babel/preset-env": "^7.28.0",
+    "@babel/preset-typescript": "^7.27.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/chai": "^4.3.11",
     "@types/compression": "^1.7.5",

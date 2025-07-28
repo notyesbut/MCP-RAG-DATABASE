@@ -567,4 +567,24 @@ export abstract class BaseMCP extends EventEmitter {
     }
     return 'standard';
   }
+
+  // Additional methods that may be required by extending classes
+  async optimize(): Promise<void> {
+    // Base optimization - can be overridden by specific implementations
+    await this.performCleanup();
+  }
+
+  async updateConfiguration(newConfig: Partial<MCPConfig>): Promise<boolean> {
+    try {
+      // Update configuration
+      Object.assign(this.config, newConfig);
+      Object.assign(this.metadata.configuration, newConfig);
+      this.metadata.updatedAt = Date.now();
+      this.emit('configuration_updated', { mcpId: this.metadata.id, config: this.config });
+      return true;
+    } catch (error) {
+      this.handleError('updateConfiguration', error as Error);
+      return false;
+    }
+  }
 }

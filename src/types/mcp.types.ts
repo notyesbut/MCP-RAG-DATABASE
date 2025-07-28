@@ -867,17 +867,59 @@ export interface MigrationStep {
  * MCP Registry configuration
  */
 export interface MCPRegistryConfig {
+  /** Instance ID */
+  id: string;
+  
+  /** Domain */
+  domain: MCPDomain;
+  
+  /** Type */
+  type: MCPTypeString;
+  
   /** Maximum MCP instances */
-  maxInstances: number;
+  maxInstances?: number;
   
   /** Default MCP configuration */
-  defaultConfig: Partial<MCPConfiguration>;
+  defaultConfig?: Partial<MCPConfiguration>;
   
   /** Auto-scaling enabled */
-  autoScaling: boolean;
+  autoScaling?: boolean;
   
   /** Health check interval */
-  healthCheckInterval: number;
+  healthCheckInterval?: number;
+  
+  /** Maximum records */
+  maxRecords: number;
+  
+  /** Maximum size */
+  maxSize?: number;
+  
+  /** Cache size */
+  cacheSize?: number;
+  
+  /** Connection pool size */
+  connectionPoolSize?: number;
+  
+  /** Query timeout */
+  queryTimeout?: number;
+  
+  /** Backup frequency */
+  backupFrequency?: number;
+  
+  /** Compression enabled */
+  compressionEnabled?: boolean;
+  
+  /** Encryption enabled */
+  encryptionEnabled?: boolean;
+  
+  /** Auto indexing */
+  autoIndexing?: boolean;
+  
+  /** Replication factor */
+  replicationFactor?: number;
+  
+  /** Custom properties */
+  customProperties?: Record<string, any>;
   
   /** Maintenance window */
   maintenanceWindow?: {
@@ -923,6 +965,9 @@ export interface MCPInstance extends BaseMCP {
   /** The actual MCP implementation */
   mcp?: BaseMCP;
   
+  /** Event emitter functionality */
+  emit?: (event: string, ...args: any[]) => boolean;
+  
   /** Average query time in ms */
   averageQueryTime?: number;
   
@@ -965,6 +1010,9 @@ export interface MCPHealth {
   
   /** CPU usage percentage */
   cpuUsage?: number;
+  
+  /** Uptime in milliseconds */
+  uptime: number;
 }
 
 /**
@@ -973,6 +1021,9 @@ export interface MCPHealth {
 export interface MCPStats {
   /** Total operations */
   totalOperations: number;
+  
+  /** Total records */
+  totalRecords: number;
   
   /** Successful operations */
   successfulOperations: number;
@@ -1113,4 +1164,14 @@ export interface BaseMCP {
   
   // Capabilities
   getCapabilities(): MCPCapabilities;
+  
+  // Migration support
+  prepareForMigration?(): Promise<DataRecord[]>;
+  acceptMigration?(records: DataRecord[]): Promise<boolean>;
+  
+  // Optimization
+  optimize?(): Promise<void>;
+  
+  // Configuration updates
+  updateConfiguration?(config: Partial<MCPConfiguration>): Promise<boolean>;
 }

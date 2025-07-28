@@ -66,10 +66,14 @@ export class ResultAggregator {
       duration: Date.now() - startTime,
       timestamp: Date.now(),
       results: aggregatedData,
-      metadata,
+      data: {
+        primary: aggregatedData,
+        metadata
+      },
       insights,
-      errors: errors.length > 0 ? errors : undefined,
-      caching
+      errors: errors.length > 0 ? errors : [],
+      caching,
+      learnedPatterns: this.identifyLearnedPatterns(originalQuery, successfulResults)
     };
   }
 
@@ -359,15 +363,19 @@ export class ResultAggregator {
     return {
       interpretation: `Aggregated ${results.length} MCP results using ${strategy} strategy`,
       performanceNotes,
-      suggestions,
-      learnedPatterns
+      suggestions
     };
   }
 
   /**
    * Handle errors from failed MCPs
    */
-  private handleErrors(failedResults: MCPResult[]): QueryError[] {
+  private handleErrors(failedResults: MCPResult[]): Array<{
+    mcpId: string;
+    error: string;
+    severity: 'warning' | 'error' | 'critical';
+    handlingStrategy: string;
+  }> {
     return failedResults.map(result => ({
       mcpId: result.mcpId,
       error: result.metadata.error || 'Unknown error',

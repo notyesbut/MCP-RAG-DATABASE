@@ -57,34 +57,172 @@ export class QueryExecutionPlanner {
       estimatedTime,
       resourceRequirements,
       optimizations,
-      strategy,
-      fallbacks
+      strategy: strategy || {
+        type: 'sequential',
+        estimatedTotalTime: estimatedTime,
+        resourceRequirements
+      },
+      fallbacks,
+      // Legacy properties for compatibility
+      steps: [],
+      optimizationStrategy: strategy ? strategy.type as any : 'standard',
+      parallelization: {
+        parallel: strategy?.type === 'parallel',
+        maxParallelism: 5,
+        groups: [],
+        synchronizationPoints: []
+      }
     };
   }
 
   /**
-   * Analyze current state of all target MCPs
+   * Analyze current state of all target MCPs with enhanced intelligence
    */
-  private async analyzeMCPStates(targetMCPs: InterpretedQuery['targetMCPs']) {
+  private async analyzeMCPStates(targetMCPs: string[]) {
     const mcpStates = [];
     
-    for (const mcpTarget of targetMCPs) {
-      const capabilities = await this.mcpRegistry.getMCPCapabilities(mcpTarget.mcpId);
-      const currentLoad = await this.mcpRegistry.getMCPLoad(mcpTarget.mcpId);
-      const health = await this.mcpRegistry.getMCPHealth(mcpTarget.mcpId);
-      const historicalPerformance = this.performanceHistory.get(mcpTarget.mcpId) || [100];
-      
-      mcpStates.push({
-        ...mcpTarget,
-        capabilities,
-        currentLoad,
-        health,
-        avgPerformance: historicalPerformance.reduce((a, b) => a + b) / historicalPerformance.length,
-        adjustedLatency: this.calculateAdjustedLatency(mcpTarget.estimatedLatency, currentLoad, health)
-      });
+    for (const mcpId of targetMCPs) {
+      try {
+        // Get real MCP instance from registry
+        const mcpInstancePromise = this.mcpRegistry.getMCP(mcpId);
+        const mcpInstance = await mcpInstancePromise;
+        if (!mcpInstance) {
+          console.warn(`MCP ${mcpId} not found in registry`);
+          continue;
+        }
+        
+        // Gather comprehensive MCP state information
+        const [health, metrics] = await Promise.all([
+          mcpInstance.getHealth(),
+          mcpInstance.getMetrics()
+        ]);
+        
+        // Create capabilities from available data
+        const capabilities = {
+          type: mcpInstance.type,
+          tier: mcpInstance.tier,
+          supportedQueries: ['basic', 'aggregation', 'search'],
+          maxQuerySize: 10000
+        };
+        
+        const historicalPerformance = this.performanceHistory.get(mcpId) || [100];
+        const avgLatency = historicalPerformance.reduce((a, b) => a + b) / historicalPerformance.length;
+        
+        // Calculate intelligent load and priority
+        const currentLoad = this.calculateCurrentLoad(health, metrics);
+        const priority = this.calculateMCPPriority(mcpId, capabilities, health);
+        
+        mcpStates.push({
+          mcpId,
+          capabilities,
+          currentLoad,
+          health: health.status,
+          healthDetails: health,
+          metrics,
+          avgPerformance: avgLatency,
+          estimatedLatency: avgLatency,
+          adjustedLatency: this.calculateAdjustedLatency(avgLatency, currentLoad, health.status),
+          priority,
+          type: this.determineMCPType(mcpId),
+          reliability: this.calculateReliability(historicalPerformance),
+          lastUpdate: Date.now()
+        });
+      } catch (error) {
+        console.error(`Failed to analyze MCP ${mcpId}:`, error);
+        // Add fallback state for failed MCPs
+        mcpStates.push({
+          mcpId,
+          capabilities: null,
+          currentLoad: 100, // Max load for failed MCP
+          health: 'unhealthy',
+          avgPerformance: 1000, // High latency penalty
+          estimatedLatency: 1000,
+          adjustedLatency: Infinity,
+          priority: 10, // Lowest priority
+          type: 'unknown',
+          reliability: 0,
+          lastUpdate: Date.now(),
+          error: (error as Error).message
+        });
+      }
     }
     
-    return mcpStates;
+    return mcpStates.sort((a, b) => a.priority - b.priority);
+  }
+  
+  /**
+   * Calculate current load based on health and metrics
+   */
+  private calculateCurrentLoad(health: any, metrics: any): number {
+    const cpuWeight = 0.4;
+    const memoryWeight = 0.3;
+    const responseTimeWeight = 0.2;
+    const throughputWeight = 0.1;
+    
+    const cpuLoad = health.cpuUsage || 0;
+    const memoryLoad = health.memoryUsage || 0;
+    const responseTimeLoad = Math.min((metrics.avgQueryTime || 100) / 1000 * 100, 100);
+    const throughputLoad = Math.max(0, 100 - (metrics.queryCount || 0) / 10); // Inverse of throughput
+    
+    return cpuLoad * cpuWeight + 
+           memoryLoad * memoryWeight + 
+           responseTimeLoad * responseTimeWeight + 
+           throughputLoad * throughputWeight;
+  }
+  
+  /**
+   * Calculate MCP priority based on capabilities and health
+   */
+  private calculateMCPPriority(mcpId: string, capabilities: any, health: any): number {
+    let priority = 5; // Base priority
+    
+    // Adjust based on MCP type
+    if (mcpId.includes('user')) priority = 1; // Users are highest priority
+    else if (mcpId.includes('chat')) priority = 2;
+    else if (mcpId.includes('stats')) priority = 3;
+    else if (mcpId.includes('logs')) priority = 4;
+    
+    // Adjust based on health
+    if (health.status === 'healthy') priority -= 0;
+    else if (health.status === 'degraded') priority += 1;
+    else if (health.status === 'unhealthy') priority += 3;
+    
+    // Adjust based on capabilities
+    if (capabilities?.transactionSupport) priority -= 0.5;
+    if (capabilities?.fullTextSearch) priority -= 0.3;
+    if (capabilities?.streamingSupport) priority -= 0.2;
+    
+    return Math.max(1, priority);
+  }
+  
+  /**
+   * Determine MCP type (hot/cold) based on ID and characteristics
+   */
+  private determineMCPType(mcpId: string): 'hot' | 'cold' | 'unknown' {
+    if (mcpId.includes('hot')) return 'hot';
+    if (mcpId.includes('cold')) return 'cold';
+    
+    // Intelligent type detection based on MCP characteristics
+    if (mcpId.includes('user') || mcpId.includes('chat')) return 'hot';
+    if (mcpId.includes('logs') || mcpId.includes('archive')) return 'cold';
+    
+    return 'unknown';
+  }
+  
+  /**
+   * Calculate reliability score based on historical performance
+   */
+  private calculateReliability(performanceHistory: number[]): number {
+    if (performanceHistory.length === 0) return 0.5;
+    
+    const avgResponseTime = performanceHistory.reduce((a, b) => a + b) / performanceHistory.length;
+    const variance = performanceHistory.reduce((sum, time) => sum + Math.pow(time - avgResponseTime, 2), 0) / performanceHistory.length;
+    const stability = Math.max(0, 1 - Math.sqrt(variance) / avgResponseTime);
+    
+    // Good response time (< 100ms) and stability
+    const responseScore = Math.max(0, 1 - avgResponseTime / 1000);
+    
+    return (responseScore * 0.6) + (stability * 0.4);
   }
 
   /**
@@ -100,9 +238,11 @@ export class QueryExecutionPlanner {
     
     // Resource requirements calculation
     const resourceRequirements = {
-      memory: mcpStates.reduce((sum, mcp) => sum + this.estimateMemoryUsage(mcp), 0),
       cpu: Math.max(...mcpStates.map(mcp => this.estimateCPUUsage(mcp))),
-      network: mcpStates.reduce((sum, mcp) => sum + this.estimateNetworkUsage(mcp), 0)
+      memory: mcpStates.reduce((sum, mcp) => sum + this.estimateMemoryUsage(mcp), 0),
+      diskIO: 100, // Default disk I/O estimate
+      networkBandwidth: mcpStates.reduce((sum, mcp) => sum + this.estimateNetworkUsage(mcp), 0),
+      dataSize: 1000 // Default data size estimate
     };
 
     // Strategy decision logic
@@ -386,7 +526,7 @@ export class QueryExecutionPlanner {
     // Group 1: Independent MCPs that can run in parallel
     const independent = mcpStates.filter(mcp => 
       mcp.mcpId !== 'token-mcp' && 
-      !interpretedQuery.aggregationStrategy.toString().includes('cross')
+      (!interpretedQuery.aggregationStrategy || !interpretedQuery.aggregationStrategy.toString().includes('cross'))
     );
     
     if (independent.length > 0) {
@@ -419,7 +559,10 @@ export class QueryExecutionPlanner {
       }
     };
     
-    return fieldSets[mcpType as keyof typeof fieldSets]?.[primaryIntent as keyof typeof fieldSets['user']] || ['*'];
+    const mcpFields = fieldSets[mcpType as keyof typeof fieldSets];
+    if (!mcpFields) return ['*'];
+    
+    return (mcpFields as any)[primaryIntent] || ['*'];
   }
 
   private calculateOptimalLimit(intents: any[]): number {
@@ -466,7 +609,7 @@ export class QueryExecutionPlanner {
     // Create simplified plan with alternative MCPs
     return this.createExecutionPlan({
       ...interpretedQuery,
-      targetMCPs: alternativeMCPs
+      targetMCPs: alternativeMCPs.map(mcp => mcp.mcpId)
     });
   }
 
@@ -497,7 +640,7 @@ export class QueryExecutionPlanner {
     
     return this.createExecutionPlan({
       ...interpretedQuery,
-      targetMCPs: resilientMCPs
+      targetMCPs: resilientMCPs.map(mcp => mcp.mcpId)
     });
   }
 

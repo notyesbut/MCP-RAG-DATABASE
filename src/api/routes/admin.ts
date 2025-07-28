@@ -7,6 +7,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import rateLimit from 'express-rate-limit';
 import { z, ZodError } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
+import { asyncAuthHandler } from '../utils/asyncHandler';
 
 import { 
   ApiResponse, 
@@ -100,7 +101,7 @@ export function createAdminRoutes(
   });
 
   router.use(adminRateLimit);
-  router.use(requireAdmin);
+  router.use(requireAdmin as any);
 
   /**
    * @swagger
@@ -121,7 +122,7 @@ export function createAdminRoutes(
    *       200: { description: "MCP list retrieved successfully" }
    *       500: { description: "Internal server error" }
    */
-  router.get('/mcps', async (req: AuthenticatedRequest, res: Response) => {
+  router.get('/mcps', asyncAuthHandler(async (req: AuthenticatedRequest, res: Response) => {
     const requestId = getRequestId(req);
     const { status: statusFilter, type: typeFilter } = req.query;
 
@@ -179,7 +180,7 @@ export function createAdminRoutes(
     } catch (error) {
       handleError(res, error, 'Failed to retrieve MCP list', 500, requestId);
     }
-  });
+  }));
 
   /**
    * @swagger
@@ -199,7 +200,7 @@ export function createAdminRoutes(
    *       404: { description: "MCP not found" }
    *       500: { description: "Internal server error" }
    */
-  router.get('/mcps/:id', async (req: AuthenticatedRequest, res: Response) => {
+  router.get('/mcps/:id', asyncAuthHandler(async (req: AuthenticatedRequest, res: Response) => {
     const requestId = getRequestId(req);
     const { id } = req.params;
 
@@ -239,7 +240,7 @@ export function createAdminRoutes(
     } catch (error) {
       handleError(res, error, 'Failed to retrieve MCP details', 500, requestId);
     }
-  });
+  }));
 
   /**
    * @swagger
@@ -259,7 +260,7 @@ export function createAdminRoutes(
    *       400: { description: "Invalid configuration provided" }
    *       500: { description: "Failed to register MCP" }
    */
-  router.post('/mcps', async (req: AuthenticatedRequest, res: Response) => {
+  router.post("/mcps", asyncAuthHandler(async (req: AuthenticatedRequest, res: Response) => {
     const requestId = getRequestId(req);
 
     try {
@@ -291,7 +292,7 @@ export function createAdminRoutes(
       }
       handleError(res, error, 'Failed to register MCP', 500, requestId);
     }
-  });
+  }));
 
   /**
    * @swagger
@@ -317,7 +318,7 @@ export function createAdminRoutes(
    *       400: { description: "Invalid maintenance operation" }
    *       500: { description: "Failed to start maintenance" }
    */
-  router.post('/mcps/:id/maintenance', async (req: AuthenticatedRequest, res: Response) => {
+  router.post("/mcps/:id/maintenance", asyncAuthHandler(async (req: AuthenticatedRequest, res: Response) => {
     const requestId = getRequestId(req);
     const { id } = req.params;
     const { operation, options } = req.body;
@@ -344,7 +345,7 @@ export function createAdminRoutes(
     } catch (error) {
       handleError(res, error, 'Failed to start maintenance operation', 500, requestId);
     }
-  });
+  }));
 
   /**
    * @swagger
@@ -362,7 +363,7 @@ export function createAdminRoutes(
    *       200: { description: "System metrics retrieved" }
    *       500: { description: "Failed to retrieve metrics" }
    */
-  router.get('/metrics', async (req: AuthenticatedRequest, res: Response) => {
+  router.get("/metrics", asyncAuthHandler(async (req: AuthenticatedRequest, res: Response) => {
     const requestId = getRequestId(req);
     const timeRange = req.query.timeRange as string || '24h';
 
@@ -408,7 +409,7 @@ export function createAdminRoutes(
     } catch (error) {
       handleError(res, error, 'Failed to retrieve system metrics', 500, requestId);
     }
-  });
+  }));
 
   /**
    * @swagger
@@ -429,7 +430,7 @@ export function createAdminRoutes(
    *       200: { description: "System logs retrieved" }
    *       500: { description: "Failed to retrieve logs" }
    */
-  router.get('/logs', async (req: AuthenticatedRequest, res: Response) => {
+  router.get("/logs", asyncAuthHandler(async (req: AuthenticatedRequest, res: Response) => {
     const requestId = getRequestId(req);
     const level = req.query.level as string | undefined;
     const limit = Math.min(1000, parseInt(req.query.limit as string, 10) || 100);
@@ -458,7 +459,7 @@ export function createAdminRoutes(
     } catch (error) {
       handleError(res, error, 'Failed to retrieve system logs', 500, requestId);
     }
-  });
+  }));
 
   /**
    * @swagger
@@ -481,7 +482,7 @@ export function createAdminRoutes(
    *       202: { description: "Backup process started" }
    *       500: { description: "Failed to start backup" }
    */
-  router.post('/system/backup', (req: AuthenticatedRequest, res: Response) => {
+  router.post("/system/backup", asyncAuthHandler(async (req: AuthenticatedRequest, res: Response) => {
     const requestId = getRequestId(req);
     const { type = 'full', compression = true } = req.body;
 
@@ -509,7 +510,7 @@ export function createAdminRoutes(
     } catch (error) {
       handleError(res, error, 'Failed to start system backup', 500, requestId);
     }
-  });
+  }));
 
   return router;
 }

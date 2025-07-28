@@ -18,6 +18,7 @@ import { requirePermission, optionalAuth } from '../middleware/auth';
 import { config } from '../../api/config/config';
 import { RAG2Controller } from '../../rag/query/rag2';
 import { v4 as uuidv4 } from 'uuid';
+import { asyncHandler, asyncAuthHandler } from '../utils/asyncHandler';
 
 // Query-specific rate limiting
 const queryRateLimit = rateLimit({
@@ -72,7 +73,7 @@ export function createQueryRoutes(rag2Controller: RAG2Controller): Router {
    * POST /api/query/natural
    * Main endpoint for natural language queries
    */
-  router.post('/natural', queryRateLimit, optionalAuth, async (req: AuthenticatedRequest, res: Response) => {
+  router.post('/natural', queryRateLimit, optionalAuth, asyncAuthHandler(async (req: AuthenticatedRequest, res: Response) => {
     const requestId = req.headers['x-request-id'] as string || uuidv4();
     try {
       const validationResult = querySchema.safeParse(req.body);
@@ -128,14 +129,14 @@ export function createQueryRoutes(rag2Controller: RAG2Controller): Router {
         timestamp: new Date().toISOString(),
         requestId
       } as ApiResponse);
-    }
-  });
+    })
+  );
 
   /**
    * POST /api/query/test
    * Test endpoint for query interpretation without execution
    */
-  router.post('/test', optionalAuth, async (req: AuthenticatedRequest, res: Response) => {
+  router.post('/test', optionalAuth, asyncAuthHandler(async (req: AuthenticatedRequest, res: Response) => {
     const requestId = req.headers['x-request-id'] as string || uuidv4();
     try {
       const { query } = req.body;
@@ -166,8 +167,8 @@ export function createQueryRoutes(rag2Controller: RAG2Controller): Router {
         timestamp: new Date().toISOString(),
         requestId
       } as ApiResponse);
-    }
-  });
+    })
+  );
 
   /**
    * GET /api/query/examples
@@ -187,7 +188,7 @@ export function createQueryRoutes(rag2Controller: RAG2Controller): Router {
    * GET /api/query/history
    * Get query history for the current user/session
    */
-  router.get('/history', optionalAuth, async (req: AuthenticatedRequest, res: Response) => {
+  router.get('/history', optionalAuth, asyncAuthHandler(async (req: AuthenticatedRequest, res: Response) => {
     const requestId = req.headers['x-request-id'] as string || uuidv4();
     try {
       const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
@@ -207,14 +208,14 @@ export function createQueryRoutes(rag2Controller: RAG2Controller): Router {
         timestamp: new Date().toISOString(),
         requestId
       } as ApiResponse);
-    }
-  });
+    })
+  );
 
   /**
    * GET /api/query/performance
    * Get performance insights and metrics
    */
-  router.get('/performance', requirePermission(['admin']), async (req: AuthenticatedRequest, res: Response) => {
+  router.get('/performance', requirePermission(['admin']), asyncAuthHandler(async (req: AuthenticatedRequest, res: Response) => {
     const requestId = req.headers['x-request-id'] as string || uuidv4();
     try {
       const insights = await rag2Controller.getMetrics();
@@ -233,14 +234,14 @@ export function createQueryRoutes(rag2Controller: RAG2Controller): Router {
         timestamp: new Date().toISOString(),
         requestId
       } as ApiResponse);
-    }
-  });
+    })
+  );
 
   /**
    * POST /api/query/bulk
    * Process multiple queries in batch
    */
-  router.post('/bulk', queryRateLimit, optionalAuth, async (req: AuthenticatedRequest, res: Response) => {
+  router.post('/bulk', queryRateLimit, optionalAuth, asyncAuthHandler(async (req: AuthenticatedRequest, res: Response) => {
     const requestId = req.headers['x-request-id'] as string || uuidv4();
     try {
       const validationResult = bulkQuerySchema.safeParse(req.body);
@@ -281,14 +282,14 @@ export function createQueryRoutes(rag2Controller: RAG2Controller): Router {
         timestamp: new Date().toISOString(),
         requestId
       } as ApiResponse);
-    }
-  });
+    })
+  );
 
   /**
    * DELETE /api/query/cache
    * Clear query cache (admin endpoint)
    */
-  router.delete('/cache', requirePermission(['admin']), async (req: AuthenticatedRequest, res: Response) => {
+  router.delete('/cache', requirePermission(['admin']), asyncAuthHandler(async (req: AuthenticatedRequest, res: Response) => {
     const requestId = req.headers['x-request-id'] as string || uuidv4();
     try {
       await rag2Controller.clearCache();
@@ -307,8 +308,8 @@ export function createQueryRoutes(rag2Controller: RAG2Controller): Router {
         timestamp: new Date().toISOString(),
         requestId
       } as ApiResponse);
-    }
-  });
+    })
+  );
 
   /**
    * GET /api/query/health
