@@ -36,7 +36,8 @@ module.exports = {
           "@intelligence/*": ["./src/intelligence/*"],
           "@api/*": ["./src/api/*"]
         }
-      }
+      },
+      isolatedModules: true
     }]
   },
 
