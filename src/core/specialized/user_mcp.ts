@@ -466,7 +466,7 @@ export class UserMCP extends BaseMCP {
   async optimizeUserAccess(): Promise<void> {
     // Analyze user access patterns and optimize indices
     const frequentlyAccessedUsers = Array.from(this.records.values())
-      .filter(record => record.metadata?.accessPattern?.frequency > 10)
+      .filter(record => record.metadata?.accessPattern?.frequency && record.metadata.accessPattern.frequency > 10)
       .sort((a, b) => (b.metadata?.accessPattern?.frequency || 0) - (a.metadata?.accessPattern?.frequency || 0))
       .slice(0, 100); // Top 100 frequently accessed users
     
@@ -549,21 +549,14 @@ export class UserMCP extends BaseMCP {
   /**
    * Create production-ready database indexes for user queries
    */
-  async createIndex(definition: {
-    name: string;
-    fields: string[];
-    unique?: boolean;
-    sparse?: boolean;
-    background?: boolean;
-  }): Promise<{
-    success: boolean;
-    indexName: string;
-    fieldsIndexed: string[];
-    performance: {
-      estimatedImprovement: number;
-      querySpeedup: string;
+  override async createIndex(indexName: string, fields: string[], options: any = {}): Promise<boolean> {
+    const definition = {
+      name: indexName,
+      fields,
+      unique: options.unique || false,
+      sparse: options.sparse || false,
+      background: options.background || false
     };
-  }> {
     try {
       // Validate index definition
       if (!definition.name || !definition.fields || definition.fields.length === 0) {
@@ -573,15 +566,7 @@ export class UserMCP extends BaseMCP {
       // Check if index already exists
       const existingIndex = this.indices.get(definition.name);
       if (existingIndex) {
-        return {
-          success: true,
-          indexName: definition.name,
-          fieldsIndexed: definition.fields,
-          performance: {
-            estimatedImprovement: 0,
-            querySpeedup: 'Index already exists'
-          }
-        };
+        return true;
       }
 
       // Create the index
@@ -639,19 +624,9 @@ export class UserMCP extends BaseMCP {
         Math.min(95, (recordCount / 1000) * 25) : 
         recordCount * 0.5;
 
-      return {
-        success: true,
-        indexName: definition.name,
-        fieldsIndexed: definition.fields,
-        performance: {
-          estimatedImprovement,
-          querySpeedup: recordCount > 1000 ? 
-            `${Math.round(recordCount / 100)}x faster` : 
-            `${Math.round(recordCount / 10)}x faster`
-        }
-      };
+      return true;
     } catch (error) {
-      throw new Error(`Failed to create index ${definition.name}: ${(error as Error).message}`);
+      return false;
     }
   }
 
@@ -680,11 +655,11 @@ export class UserMCP extends BaseMCP {
       const queryPatterns = this.analyzeQueryPatterns();
       for (const pattern of queryPatterns) {
         if (pattern.frequency > 10) {
-          await this.createIndex({
-            name: `auto_${pattern.field}_idx`,
-            fields: [pattern.field],
-            background: true
-          });
+          await this.createIndex(
+            `auto_${pattern.field}_idx`,
+            [pattern.field],
+            { background: true }
+          );
           optimizations.push(`Created auto-index for ${pattern.field}`);
         }
       }

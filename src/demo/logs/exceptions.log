@@ -1,0 +1,284 @@
+2025-07-29 01:08:33.202 [ERROR] [enterprise-mcp-api]: uncaughtException: Transform failed with 1 error:
+/home/glebs/IdeaProjects/ragdb/untitled/src/mcp/registry/MCPRegistry.ts:457:50: ERROR: "await" can only be used inside an "async" function
+Error: Transform failed with 1 error:
+/home/glebs/IdeaProjects/ragdb/untitled/src/mcp/registry/MCPRegistry.ts:457:50: ERROR: "await" can only be used inside an "async" function
+    at failureErrorWithLog (/mnt/c/Users/glebs/AppData/Local/Programs/IntelliJ IDEA Ultimate/plugins/nodeJS/js/ts-file-loader/node_modules/esbuild/lib/main.js:1462:15)
+    at /mnt/c/Users/glebs/AppData/Local/Programs/IntelliJ IDEA Ultimate/plugins/nodeJS/js/ts-file-loader/node_modules/esbuild/lib/main.js:745:50
+    at responseCallbacks.<computed> (/mnt/c/Users/glebs/AppData/Local/Programs/IntelliJ IDEA Ultimate/plugins/nodeJS/js/ts-file-loader/node_modules/esbuild/lib/main.js:612:9)
+    at handleIncomingPacket (/mnt/c/Users/glebs/AppData/Local/Programs/IntelliJ IDEA Ultimate/plugins/nodeJS/js/ts-file-loader/node_modules/esbuild/lib/main.js:667:12)
+    at Socket.readFromStdout (/mnt/c/Users/glebs/AppData/Local/Programs/IntelliJ IDEA Ultimate/plugins/nodeJS/js/ts-file-loader/node_modules/esbuild/lib/main.js:590:7)
+    at Socket.emit (node:events:524:28)
+    at addChunk (node:internal/streams/readable:561:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+    at Readable.push (node:internal/streams/readable:392:5)
+    at Pipe.onStreamRead (node:internal/stream_base_commons:191:23)
+Error: Transform failed with 1 error:
+/home/glebs/IdeaProjects/ragdb/untitled/src/mcp/registry/MCPRegistry.ts:457:50: ERROR: "await" can only be used inside an "async" function
+    at failureErrorWithLog (/mnt/c/Users/glebs/AppData/Local/Programs/IntelliJ IDEA Ultimate/plugins/nodeJS/js/ts-file-loader/node_modules/esbuild/lib/main.js:1462:15)
+    at /mnt/c/Users/glebs/AppData/Local/Programs/IntelliJ IDEA Ultimate/plugins/nodeJS/js/ts-file-loader/node_modules/esbuild/lib/main.js:745:50
+    at responseCallbacks.<computed> (/mnt/c/Users/glebs/AppData/Local/Programs/IntelliJ IDEA Ultimate/plugins/nodeJS/js/ts-file-loader/node_modules/esbuild/lib/main.js:612:9)
+    at handleIncomingPacket (/mnt/c/Users/glebs/AppData/Local/Programs/IntelliJ IDEA Ultimate/plugins/nodeJS/js/ts-file-loader/node_modules/esbuild/lib/main.js:667:12)
+    at Socket.readFromStdout (/mnt/c/Users/glebs/AppData/Local/Programs/IntelliJ IDEA Ultimate/plugins/nodeJS/js/ts-file-loader/node_modules/esbuild/lib/main.js:590:7)
+    at Socket.emit (node:events:524:28)
+    at addChunk (node:internal/streams/readable:561:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+    at Readable.push (node:internal/streams/readable:392:5)
+    at Pipe.onStreamRead (node:internal/stream_base_commons:191:23)
+{
+  "error": {
+    "name": "TransformError"
+  },
+  "exception": true,
+  "date": "Tue Jul 29 2025 01:08:33 GMT-0400 (Eastern Daylight Time)",
+  "process": {
+    "pid": 341893,
+    "uid": 1000,
+    "gid": 1000,
+    "cwd": "/home/glebs/IdeaProjects/ragdb/untitled/src/demo",
+    "execPath": "/home/glebs/.nvm/versions/node/v20.19.3/bin/node",
+    "version": "v20.19.3",
+    "argv": [
+      "/home/glebs/.nvm/versions/node/v20.19.3/bin/node",
+      "/home/glebs/IdeaProjects/ragdb/untitled/src/demo/ProductionDemo.ts"
+    ],
+    "memoryUsage": {
+      "rss": 98467840,
+      "heapTotal": 11771904,
+      "heapUsed": 8944648,
+      "external": 2329501,
+      "arrayBuffers": 50356
+    }
+  },
+  "os": {
+    "loadavg": [
+      2.69,
+      2.75,
+      2.84
+    ],
+    "uptime": 257635.15
+  },
+  "trace": [
+    {
+      "column": 15,
+      "file": "/mnt/c/Users/glebs/AppData/Local/Programs/IntelliJ IDEA Ultimate/plugins/nodeJS/js/ts-file-loader/node_modules/esbuild/lib/main.js",
+      "function": "failureErrorWithLog",
+      "line": 1462,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 50,
+      "file": "/mnt/c/Users/glebs/AppData/Local/Programs/IntelliJ IDEA Ultimate/plugins/nodeJS/js/ts-file-loader/node_modules/esbuild/lib/main.js",
+      "function": null,
+      "line": 745,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 9,
+      "file": "/mnt/c/Users/glebs/AppData/Local/Programs/IntelliJ IDEA Ultimate/plugins/nodeJS/js/ts-file-loader/node_modules/esbuild/lib/main.js",
+      "function": "responseCallbacks.<computed>",
+      "line": 612,
+      "method": "<computed>",
+      "native": false
+    },
+    {
+      "column": 12,
+      "file": "/mnt/c/Users/glebs/AppData/Local/Programs/IntelliJ IDEA Ultimate/plugins/nodeJS/js/ts-file-loader/node_modules/esbuild/lib/main.js",
+      "function": "handleIncomingPacket",
+      "line": 667,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 7,
+      "file": "/mnt/c/Users/glebs/AppData/Local/Programs/IntelliJ IDEA Ultimate/plugins/nodeJS/js/ts-file-loader/node_modules/esbuild/lib/main.js",
+      "function": "Socket.readFromStdout",
+      "line": 590,
+      "method": "readFromStdout",
+      "native": false
+    },
+    {
+      "column": 28,
+      "file": "node:events",
+      "function": "Socket.emit",
+      "line": 524,
+      "method": "emit",
+      "native": false
+    },
+    {
+      "column": 12,
+      "file": "node:internal/streams/readable",
+      "function": "addChunk",
+      "line": 561,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 3,
+      "file": "node:internal/streams/readable",
+      "function": "readableAddChunkPushByteMode",
+      "line": 512,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 5,
+      "file": "node:internal/streams/readable",
+      "function": "Readable.push",
+      "line": 392,
+      "method": "push",
+      "native": false
+    },
+    {
+      "column": 23,
+      "file": "node:internal/stream_base_commons",
+      "function": "Pipe.onStreamRead",
+      "line": 191,
+      "method": "onStreamRead",
+      "native": false
+    }
+  ]
+}
+2025-07-29 01:26:56.642 [ERROR] [enterprise-mcp-api]: uncaughtException: Transform failed with 1 error:
+/home/glebs/IdeaProjects/ragdb/untitled/src/mcp/registry/MCPRegistry.ts:457:50: ERROR: "await" can only be used inside an "async" function
+Error: Transform failed with 1 error:
+/home/glebs/IdeaProjects/ragdb/untitled/src/mcp/registry/MCPRegistry.ts:457:50: ERROR: "await" can only be used inside an "async" function
+    at failureErrorWithLog (/mnt/c/Users/glebs/AppData/Local/Programs/IntelliJ IDEA Ultimate/plugins/nodeJS/js/ts-file-loader/node_modules/esbuild/lib/main.js:1462:15)
+    at /mnt/c/Users/glebs/AppData/Local/Programs/IntelliJ IDEA Ultimate/plugins/nodeJS/js/ts-file-loader/node_modules/esbuild/lib/main.js:745:50
+    at responseCallbacks.<computed> (/mnt/c/Users/glebs/AppData/Local/Programs/IntelliJ IDEA Ultimate/plugins/nodeJS/js/ts-file-loader/node_modules/esbuild/lib/main.js:612:9)
+    at handleIncomingPacket (/mnt/c/Users/glebs/AppData/Local/Programs/IntelliJ IDEA Ultimate/plugins/nodeJS/js/ts-file-loader/node_modules/esbuild/lib/main.js:667:12)
+    at Socket.readFromStdout (/mnt/c/Users/glebs/AppData/Local/Programs/IntelliJ IDEA Ultimate/plugins/nodeJS/js/ts-file-loader/node_modules/esbuild/lib/main.js:590:7)
+    at Socket.emit (node:events:524:28)
+    at addChunk (node:internal/streams/readable:561:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+    at Readable.push (node:internal/streams/readable:392:5)
+    at Pipe.onStreamRead (node:internal/stream_base_commons:191:23)
+Error: Transform failed with 1 error:
+/home/glebs/IdeaProjects/ragdb/untitled/src/mcp/registry/MCPRegistry.ts:457:50: ERROR: "await" can only be used inside an "async" function
+    at failureErrorWithLog (/mnt/c/Users/glebs/AppData/Local/Programs/IntelliJ IDEA Ultimate/plugins/nodeJS/js/ts-file-loader/node_modules/esbuild/lib/main.js:1462:15)
+    at /mnt/c/Users/glebs/AppData/Local/Programs/IntelliJ IDEA Ultimate/plugins/nodeJS/js/ts-file-loader/node_modules/esbuild/lib/main.js:745:50
+    at responseCallbacks.<computed> (/mnt/c/Users/glebs/AppData/Local/Programs/IntelliJ IDEA Ultimate/plugins/nodeJS/js/ts-file-loader/node_modules/esbuild/lib/main.js:612:9)
+    at handleIncomingPacket (/mnt/c/Users/glebs/AppData/Local/Programs/IntelliJ IDEA Ultimate/plugins/nodeJS/js/ts-file-loader/node_modules/esbuild/lib/main.js:667:12)
+    at Socket.readFromStdout (/mnt/c/Users/glebs/AppData/Local/Programs/IntelliJ IDEA Ultimate/plugins/nodeJS/js/ts-file-loader/node_modules/esbuild/lib/main.js:590:7)
+    at Socket.emit (node:events:524:28)
+    at addChunk (node:internal/streams/readable:561:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+    at Readable.push (node:internal/streams/readable:392:5)
+    at Pipe.onStreamRead (node:internal/stream_base_commons:191:23)
+{
+  "error": {
+    "name": "TransformError"
+  },
+  "exception": true,
+  "date": "Tue Jul 29 2025 01:26:56 GMT-0400 (Eastern Daylight Time)",
+  "process": {
+    "pid": 405702,
+    "uid": 1000,
+    "gid": 1000,
+    "cwd": "/home/glebs/IdeaProjects/ragdb/untitled/src/demo",
+    "execPath": "/home/glebs/.nvm/versions/node/v20.19.3/bin/node",
+    "version": "v20.19.3",
+    "argv": [
+      "/home/glebs/.nvm/versions/node/v20.19.3/bin/node",
+      "/home/glebs/IdeaProjects/ragdb/untitled/src/demo/ProductionDemo.ts"
+    ],
+    "memoryUsage": {
+      "rss": 93622272,
+      "heapTotal": 11771904,
+      "heapUsed": 8746760,
+      "external": 2320390,
+      "arrayBuffers": 41237
+    }
+  },
+  "os": {
+    "loadavg": [
+      2.22,
+      3.88,
+      4.08
+    ],
+    "uptime": 258847.16
+  },
+  "trace": [
+    {
+      "column": 15,
+      "file": "/mnt/c/Users/glebs/AppData/Local/Programs/IntelliJ IDEA Ultimate/plugins/nodeJS/js/ts-file-loader/node_modules/esbuild/lib/main.js",
+      "function": "failureErrorWithLog",
+      "line": 1462,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 50,
+      "file": "/mnt/c/Users/glebs/AppData/Local/Programs/IntelliJ IDEA Ultimate/plugins/nodeJS/js/ts-file-loader/node_modules/esbuild/lib/main.js",
+      "function": null,
+      "line": 745,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 9,
+      "file": "/mnt/c/Users/glebs/AppData/Local/Programs/IntelliJ IDEA Ultimate/plugins/nodeJS/js/ts-file-loader/node_modules/esbuild/lib/main.js",
+      "function": "responseCallbacks.<computed>",
+      "line": 612,
+      "method": "<computed>",
+      "native": false
+    },
+    {
+      "column": 12,
+      "file": "/mnt/c/Users/glebs/AppData/Local/Programs/IntelliJ IDEA Ultimate/plugins/nodeJS/js/ts-file-loader/node_modules/esbuild/lib/main.js",
+      "function": "handleIncomingPacket",
+      "line": 667,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 7,
+      "file": "/mnt/c/Users/glebs/AppData/Local/Programs/IntelliJ IDEA Ultimate/plugins/nodeJS/js/ts-file-loader/node_modules/esbuild/lib/main.js",
+      "function": "Socket.readFromStdout",
+      "line": 590,
+      "method": "readFromStdout",
+      "native": false
+    },
+    {
+      "column": 28,
+      "file": "node:events",
+      "function": "Socket.emit",
+      "line": 524,
+      "method": "emit",
+      "native": false
+    },
+    {
+      "column": 12,
+      "file": "node:internal/streams/readable",
+      "function": "addChunk",
+      "line": 561,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 3,
+      "file": "node:internal/streams/readable",
+      "function": "readableAddChunkPushByteMode",
+      "line": 512,
+      "method": null,
+      "native": false
+    },
+    {
+      "column": 5,
+      "file": "node:internal/streams/readable",
+      "function": "Readable.push",
+      "line": 392,
+      "method": "push",
+      "native": false
+    },
+    {
+      "column": 23,
+      "file": "node:internal/stream_base_commons",
+      "function": "Pipe.onStreamRead",
+      "line": 191,
+      "method": "onStreamRead",
+      "native": false
+    }
+  ]
+}

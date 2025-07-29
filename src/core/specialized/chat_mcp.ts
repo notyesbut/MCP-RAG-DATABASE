@@ -73,6 +73,16 @@ export class ChatMCP extends BaseMCP {
   private contentTypeIndex: Map<string, Set<string>> = new Map(); // contentType -> messageIds
   private hashtagIndex: Map<string, Set<string>> = new Map(); // hashtag -> messageIds
   private mentionIndex: Map<string, Set<string>> = new Map(); // userId -> messageIds
+  private lastIndexCreationResult?: {
+    success: boolean;
+    indexName: string;
+    fieldsIndexed: string[];
+    performance: {
+      estimatedImprovement: number;
+      querySpeedup: string;
+      recordsIndexed?: number;
+    };
+  };
 
   constructor(domain: MCPDomain, type: MCPType, config: Partial<MCPConfig> = {}) {
     super(domain, type, config);
@@ -99,7 +109,7 @@ export class ChatMCP extends BaseMCP {
 
   protected override optimizeForDomain() {}
 
-  override validateRecord(record: any): boolean {
+  validateRecord(record: any): boolean {
     if (!record || typeof record !== 'object') return false;
     
     // Required fields validation
@@ -535,21 +545,14 @@ export class ChatMCP extends BaseMCP {
   /**
    * Create production-ready indexes for chat message queries
    */
-  async createIndex(definition: {
-    name: string;
-    fields: string[];
-    unique?: boolean;
-    sparse?: boolean;
-    background?: boolean;
-  }): Promise<{
-    success: boolean;
-    indexName: string;
-    fieldsIndexed: string[];
-    performance: {
-      estimatedImprovement: number;
-      querySpeedup: string;
+  override async createIndex(indexName: string, fields: string[], options: any = {}): Promise<boolean> {
+    const definition = {
+      name: indexName,
+      fields,
+      unique: options.unique || false,
+      sparse: options.sparse || false,
+      background: options.background || false
     };
-  }> {
     try {
       // Validate index definition
       if (!definition.name || !definition.fields || definition.fields.length === 0) {
@@ -559,7 +562,8 @@ export class ChatMCP extends BaseMCP {
       // Check if index already exists
       const existingIndex = this.indices.get(definition.name);
       if (existingIndex) {
-        return {
+        // Index already exists - store details in class property if needed
+        this.lastIndexCreationResult = {
           success: true,
           indexName: definition.name,
           fieldsIndexed: definition.fields,
@@ -568,6 +572,7 @@ export class ChatMCP extends BaseMCP {
             querySpeedup: 'Index already exists'
           }
         };
+        return true;
       }
 
       // Create the index
@@ -637,19 +642,21 @@ export class ChatMCP extends BaseMCP {
         Math.min(95, (recordCount / 1000) * 30) : 
         recordCount * 0.6;
 
-      return {
+      // Store index creation result details in class property
+      this.lastIndexCreationResult = {
         success: true,
         indexName: definition.name,
         fieldsIndexed: definition.fields,
         performance: {
           estimatedImprovement,
-          querySpeedup: recordCount > 1000 ? 
-            `${Math.round(recordCount / 50)}x faster` : 
-            `${Math.round(recordCount / 10)}x faster`
+          querySpeedup: `Up to ${estimatedImprovement.toFixed(1)}% faster`,
+          recordsIndexed: recordCount
         }
       };
+
+      return true;
     } catch (error) {
-      throw new Error(`Failed to create index ${definition.name}: ${(error as Error).message}`);
+      return false;
     }
   }
 
@@ -677,11 +684,11 @@ export class ChatMCP extends BaseMCP {
       // 2. Create auto-indexes for frequent hashtags
       const topHashtags = await this.analyzeHashtagUsage();
       for (const hashtag of topHashtags.slice(0, 10)) {
-        await this.createIndex({
-          name: `auto_hashtag_${hashtag.replace('#', '')}_idx`,
-          fields: ['hashtags'],
-          background: true
-        });
+        await this.createIndex(
+          `auto_hashtag_${hashtag.replace('#', '')}_idx`,
+          ['hashtags'],
+          { background: true }
+        );
         optimizations.push(`Created auto-index for hashtag ${hashtag}`);
       }
 

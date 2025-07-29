@@ -129,8 +129,8 @@ export function createQueryRoutes(rag2Controller: RAG2Controller): Router {
         timestamp: new Date().toISOString(),
         requestId
       } as ApiResponse);
-    })
-  );
+    }
+  }));
 
   /**
    * POST /api/query/test
@@ -167,8 +167,8 @@ export function createQueryRoutes(rag2Controller: RAG2Controller): Router {
         timestamp: new Date().toISOString(),
         requestId
       } as ApiResponse);
-    })
-  );
+    }
+  }));
 
   /**
    * GET /api/query/examples
@@ -208,8 +208,8 @@ export function createQueryRoutes(rag2Controller: RAG2Controller): Router {
         timestamp: new Date().toISOString(),
         requestId
       } as ApiResponse);
-    })
-  );
+    }
+  }));
 
   /**
    * GET /api/query/performance
@@ -234,8 +234,8 @@ export function createQueryRoutes(rag2Controller: RAG2Controller): Router {
         timestamp: new Date().toISOString(),
         requestId
       } as ApiResponse);
-    })
-  );
+    }
+  }));
 
   /**
    * POST /api/query/bulk
@@ -282,8 +282,8 @@ export function createQueryRoutes(rag2Controller: RAG2Controller): Router {
         timestamp: new Date().toISOString(),
         requestId
       } as ApiResponse);
-    })
-  );
+    }
+  }));
 
   /**
    * DELETE /api/query/cache
@@ -308,8 +308,8 @@ export function createQueryRoutes(rag2Controller: RAG2Controller): Router {
         timestamp: new Date().toISOString(),
         requestId
       } as ApiResponse);
-    })
-  );
+    }
+  }));
 
   /**
    * GET /api/query/health

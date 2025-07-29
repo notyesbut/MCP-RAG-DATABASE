@@ -5,7 +5,8 @@
  */
 
 import { performance } from 'perf_hooks';
-import { describe, test, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+// Jest globals are available without imports
+// describe, test, expect, beforeAll, afterAll, beforeEach are provided by Jest
 
 // Types for benchmark results
 interface BenchmarkResult {

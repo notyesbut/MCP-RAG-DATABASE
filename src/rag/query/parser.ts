@@ -47,7 +47,7 @@ enum AggregationStrategyEnum {
 /**
  * Conversation context for improved understanding
  */
-interface ConversationContext {
+export interface ConversationContext {
   sessionId: string;
   userId?: string;
   previousQueries: string[];

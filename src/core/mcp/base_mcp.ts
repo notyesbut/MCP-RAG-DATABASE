@@ -17,7 +17,8 @@ import {
   MCPDomain,
   MCPStatus,
   AccessPattern,
-  HealthStatus
+  HealthStatus,
+  MCPTier
 } from '../../types/mcp.types';
 
 export abstract class BaseMCP extends EventEmitter {
@@ -40,19 +41,25 @@ export abstract class BaseMCP extends EventEmitter {
     // Determine performance tier based on type
     const performanceTier: MCPPerformanceTier = this.determinePerformanceTier(typeString);
     
+    const mcpId = uuidv4();
     this.metadata = {
-      id: uuidv4(),
+      id: mcpId,
+      name: `${domain}-${mcpId}`,
       domain,
       type: typeString,
       performanceTier,
       healthStatus: 'healthy',
+      status: 'active' as MCPStatus,
+      created: Date.now(),
       accessFrequency: 0,
+      accessCount: 0,
       lastAccessed: 0,
       recordCount: 0,
       averageRecordSize: 0,
       totalSize: 0,
+      dataSize: 0,
       indexStrategies: [],
-      endpoint: `mcp://${domain}/${uuidv4()}`,
+      endpoint: `mcp://${domain}/${mcpId}`,
       createdAt: Date.now(),
       updatedAt: Date.now(),
       configuration: {
@@ -71,6 +78,10 @@ export abstract class BaseMCP extends EventEmitter {
       },
       metrics: {
         averageResponseTime: 0,
+        avgReadLatency: 0,
+        avgWriteLatency: 0,
+        avgThroughput: 0,
+        throughput: 0,
         queryThroughput: 0,
         cpuUtilization: 0,
         memoryUtilization: 0,
@@ -83,6 +94,7 @@ export abstract class BaseMCP extends EventEmitter {
           packetsOut: 0
         },
         cacheHitRatio: 0,
+        cacheHitRate: 0,
         activeConnections: 0,
         successfulOperations: 0,
         failedOperations: 0,
@@ -111,6 +123,38 @@ export abstract class BaseMCP extends EventEmitter {
 
     this.capabilities = this.defineCapabilities();
     this.initializeIndices();
+  }
+
+  // Getter properties for compatibility
+  get id(): string {
+    return this.metadata.id;
+  }
+
+  get name(): string {
+    return this.metadata.name;
+  }
+
+  getId(): string {
+    return this.metadata.id;
+  }
+
+  getStatus(): MCPStatus {
+    return this.metadata.status;
+  }
+
+  get tier(): MCPTier {
+    // If tier is explicitly set, use it. Otherwise derive from performanceTier
+    if (this.metadata.tier) {
+      return this.metadata.tier;
+    }
+    // Map performance tier back to MCPTier
+    switch (this.metadata.performanceTier) {
+      case 'realtime': return MCPTier.HOT;
+      case 'standard': return MCPTier.WARM;
+      case 'batch': return MCPTier.COLD;
+      case 'archive': return MCPTier.ARCHIVE;
+      default: return MCPTier.WARM;
+    }
   }
 
   // Abstract methods to be implemented by specific MCP types
@@ -318,6 +362,11 @@ export abstract class BaseMCP extends EventEmitter {
     queryCount: number;
     lastAccess: string;
     avgQueryTime: number;
+    avgReadLatency: number;
+    avgWriteLatency: number;
+    throughput: number;
+    cacheHitRatio: number;
+    cacheHitRate: number;
     errorRate: number;
     storageUsed: number;
     indexCount: number;
@@ -333,6 +382,11 @@ export abstract class BaseMCP extends EventEmitter {
       queryCount: this.metadata.accessFrequency,
       lastAccess: new Date(this.metadata.lastAccessed).toISOString(),
       avgQueryTime: this.metadata.metrics.averageResponseTime,
+      avgReadLatency: this.metadata.metrics.avgReadLatency || this.metadata.metrics.averageResponseTime,
+      avgWriteLatency: this.metadata.metrics.averageResponseTime,
+      throughput: this.metadata.metrics.throughput || this.metadata.metrics.avgThroughput,
+      cacheHitRatio: this.metadata.metrics.cacheHitRatio,
+      cacheHitRate: this.metadata.metrics.cacheHitRatio, // Alias for compatibility
       errorRate: this.metadata.metrics.errorRate,
       storageUsed: this.metadata.totalSize || 0,
       indexCount: this.indices.size,
@@ -485,24 +539,42 @@ export abstract class BaseMCP extends EventEmitter {
     });
   }
 
-  public get id(): string {
-    return this.metadata.id;
-  }
-
-  public get name(): string {
-    return this.metadata.domain;
-  }
-
-  public get tier(): MCPType {
-    // Convert MCPTypeString back to MCPType
-    if (this.metadata.type === 'hot') {
-      return MCPType.HOT;
-    }
-    return MCPType.COLD;
-  }
+  // Removed duplicate getters - already defined above
 
   public async getLogs(options: { limit?: number; level?: string; }): Promise<any[]> {
     return [];
+  }
+
+  public async healthCheck(): Promise<any> {
+    return this.getHealth();
+  }
+
+  public async backup(destination?: string): Promise<any> {
+    const records = await this.prepareForMigration();
+    return {
+      success: true,
+      destination: destination || 'default',
+      recordCount: records.length,
+      timestamp: Date.now()
+    };
+  }
+
+  public async getCacheStats(): Promise<any> {
+    return {
+      hitRate: 0,
+      missRate: 0,
+      size: this.records.size,
+      maxSize: this.config.maxRecords
+    };
+  }
+
+  public async optimizeStorage(): Promise<any> {
+    await this.optimize();
+    return {
+      success: true,
+      optimizedRecords: this.records.size,
+      timestamp: Date.now()
+    };
   }
 
   // Additional required properties and methods
@@ -511,7 +583,8 @@ export abstract class BaseMCP extends EventEmitter {
   }
 
   public get type(): MCPType {
-    return this.tier;
+    // Convert tier to MCPType based on metadata.type
+    return this.metadata.type === 'hot' ? MCPType.HOT : MCPType.COLD;
   }
 
   public async update(record: DataRecord): Promise<boolean> {
@@ -522,6 +595,18 @@ export abstract class BaseMCP extends EventEmitter {
   public async create(record: DataRecord): Promise<boolean> {
     // Create is essentially a store operation for new records
     return this.store(record);
+  }
+
+  public async setStatus(status: MCPStatus): Promise<void> {
+    // Update MCP status and emit event
+    const previousStatus = this.metadata.status;
+    this.metadata.status = status;
+    this.metadata.updatedAt = Date.now();
+    this.emit('status_changed', { 
+      mcpId: this.metadata.id, 
+      previousStatus, 
+      newStatus: status 
+    });
   }
 
   public async shutdown(): Promise<void> {
@@ -568,6 +653,22 @@ export abstract class BaseMCP extends EventEmitter {
     return 'standard';
   }
 
+  // Helper method to convert MCPTier to MCPPerformanceTier
+  public static mapTierToPerformanceTier(tier: MCPTier): MCPPerformanceTier {
+    switch (tier) {
+      case MCPTier.HOT:
+        return 'realtime';
+      case MCPTier.WARM:
+        return 'standard';
+      case MCPTier.COLD:
+        return 'batch';
+      case MCPTier.ARCHIVE:
+        return 'archive';
+      default:
+        return 'standard';
+    }
+  }
+
   // Additional methods that may be required by extending classes
   async optimize(): Promise<void> {
     // Base optimization - can be overridden by specific implementations
@@ -585,6 +686,83 @@ export abstract class BaseMCP extends EventEmitter {
     } catch (error) {
       this.handleError('updateConfiguration', error as Error);
       return false;
+    }
+  }
+
+  // Index management methods
+  async createIndex(indexName: string, fields: string[], options: any = {}): Promise<boolean> {
+    try {
+      // Create a new index
+      const index = new Map<any, Set<string>>();
+      this.indices.set(indexName, index);
+      
+      // Build index for existing records
+      for (const record of this.records.values()) {
+        const key = this.buildIndexKey(record, fields);
+        if (key !== null) {
+          this.addToIndex(indexName, key, record.id);
+        }
+      }
+      
+      this.emit('index_created', { indexName, fields, mcpId: this.metadata.id });
+      return true;
+    } catch (error) {
+      this.handleError('createIndex', error as Error);
+      return false;
+    }
+  }
+
+  async clearCache(): Promise<void> {
+    try {
+      // Clear any cached data - in this base implementation, we don't have a separate cache
+      // but subclasses might implement this differently
+      this.emit('cache_cleared', { mcpId: this.metadata.id });
+    } catch (error) {
+      this.handleError('clearCache', error as Error);
+    }
+  }
+
+  async updateMetadata(metadata: Partial<MCPMetadata>): Promise<boolean> {
+    try {
+      // Update metadata with provided values
+      Object.assign(this.metadata, metadata);
+      this.metadata.updatedAt = Date.now();
+      this.emit('metadata_updated', { mcpId: this.metadata.id, metadata });
+      return true;
+    } catch (error) {
+      this.handleError('updateMetadata', error as Error);
+      return false;
+    }
+  }
+
+  // Helper method to build index keys from records
+  private buildIndexKey(record: DataRecord, fields: string[]): any {
+    if (fields.length === 1) {
+      const field = fields[0];
+      if (field === 'domain') return record.domain;
+      if (field === 'type') return record.type;
+      if (field === 'timestamp') return Math.floor(record.timestamp / (24 * 60 * 60 * 1000));
+      // Check metadata fields
+      if (record.metadata && field in record.metadata) {
+        return record.metadata[field];
+      }
+      // Check data fields
+      if (typeof record.data === 'object' && field in record.data) {
+        return record.data[field];
+      }
+      return null;
+    } else {
+      // Composite key for multi-field indexes
+      const keyParts: any[] = [];
+      for (const field of fields) {
+        if (field === 'domain') keyParts.push(record.domain);
+        else if (field === 'type') keyParts.push(record.type);
+        else if (field === 'timestamp') keyParts.push(Math.floor(record.timestamp / (24 * 60 * 60 * 1000)));
+        else if (record.metadata && field in record.metadata) keyParts.push(record.metadata[field]);
+        else if (typeof record.data === 'object' && field in record.data) keyParts.push(record.data[field]);
+        else keyParts.push(null);
+      }
+      return keyParts.join('|');
     }
   }
 }

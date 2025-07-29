@@ -117,3 +117,33 @@ export interface MLRecommendation {
   action: string;
   estimatedImpact: number;
 }
+
+export interface PatternInsights {
+  slowestQueries: QueryPattern[];
+  hottestMCPs: AccessPattern[];
+  optimizationOpportunities: string[];
+  predictiveInsights?: PredictiveInsight[];
+  anomalies?: QueryAnomaly[];
+  recommendations?: MLRecommendation[];
+}
+
+export interface ActiveQuery {
+  queryId: string;
+  query: string;
+  startTime: number;
+  estimatedTime: number;
+  estimatedCost: number;
+  mcpLoad: number;
+  executionTime: number;
+  mcpsUsed: string[];
+  resultSize: number;
+  id?: string;
+  type?: string;
+  status?: 'pending' | 'running' | 'completed' | 'failed';
+  mcpId?: string;
+  criteria?: Record<string, any>;
+  progress?: number;
+}
+
+// Export ActiveQuery type globally
+export type ActiveQueryType = ActiveQuery;

@@ -5,12 +5,21 @@
  */
 
 import { EventEmitter } from 'events';
-import { DataRecord, MCPTier, DataClassification, RoutingDecision, RoutingExecutionStep, MCPDomain } from '../../types/mcp.types';
+import {
+  DataRecord,
+  MCPTier,
+  DataClassification,
+  RoutingDecision,
+  RoutingExecutionStep,
+  MCPDomain,
+  MCPType
+} from '../../types/mcp.types';
 import { MCPRegistry } from '../../mcp/registry/MCPRegistry';
 import { ClassificationResult } from './classifier';
 import * as tf from '@tensorflow/tfjs';
 import { createHash } from 'crypto';
 import { promisify } from 'util';
+import { BaseMCP } from '../../core/mcp/base_mcp';
 
 /**
  * Enhanced Interfaces for ML-powered Routing
@@ -382,7 +391,7 @@ class ComplianceChecker {
       maxSeverity = 'high';
     }
     
-    if (requirements.complianceStandards.includes('HIPAA') && !routing.reasoning.includes('encryption')) {
+    if (requirements.complianceStandards.includes('HIPAA') && !(routing.reasoning || '').includes('encryption')) {
       issues.push('HIPAA compliance requires encryption verification');
       maxSeverity = 'critical';
     }
@@ -410,7 +419,7 @@ class AuditLogger {
       recordId: record.id,
       targetMCPs: decision.targetMCPs,
       confidence: decision.confidence,
-      reasoning: decision.reasoning,
+      reasoning: decision.reasoning || 'No reasoning provided',
       userId: context.userId,
       sessionId: context.sessionId,
       ipAddress: context.ipAddress,
@@ -567,7 +576,8 @@ class RoutingOptimizer {
     for (const target of performance) {
       if (target.trend === 'degrading' && target.priority === 'high') {
         // Add alternative routes for critical performance issues
-        if (optimized.alternativeRoutes.length < 3) {
+        if ((optimized.alternativeRoutes?.length || 0) < 3) {
+          optimized.alternativeRoutes = optimized.alternativeRoutes || [];
           optimized.alternativeRoutes.push([...optimized.targetMCPs]); // Add current as alternative
         }
         optimized.reasoning += `; Added alternatives due to ${target.metric} degradation`;
@@ -672,6 +682,22 @@ class CapacityPredictor {
 /**
  * Supporting Types and Interfaces
  */
+interface MCPCreationRequest {
+  name: string;
+  domain: MCPDomain;
+  type: string;
+  tier?: MCPTier;
+  config: {
+    maxRecords: number;
+    compressionEnabled: boolean;
+    encryptionEnabled: boolean;
+    securityRequirements?: number;
+    complianceLevel?: number;
+    backupEnabled?: boolean;
+    auditingEnabled?: boolean;
+  };
+}
+
 interface RoutingContext {
   systemLoad?: number;
   networkLatency?: number;
@@ -784,26 +810,26 @@ export class RoutingEngine extends EventEmitter {
   private mlModel: tf.LayersModel | null = null;
   private patternMemory: Map<string, RoutingPattern> = new Map();
   private routingNeuralNetwork: tf.LayersModel | null = null;
-  private featureExtractor: FeatureExtractor;
+  private featureExtractor!: FeatureExtractor;
   
   // Real-time Optimization
-  private performanceMonitor: PerformanceMonitor;
-  private predictiveScaler: PredictiveScaler;
-  private adaptiveRebalancer: AdaptiveRebalancer;
+  private performanceMonitor!: PerformanceMonitor;
+  private predictiveScaler!: PredictiveScaler;
+  private adaptiveRebalancer!: AdaptiveRebalancer;
   
   // Enterprise Security
-  private securityValidator: SecurityValidator;
-  private complianceChecker: ComplianceChecker;
-  private auditLogger: AuditLogger;
+  private securityValidator!: SecurityValidator;
+  private complianceChecker!: ComplianceChecker;
+  private auditLogger!: AuditLogger;
   
   // Pattern Learning System
-  private patternLearner: PatternLearner;
-  private routingOptimizer: RoutingOptimizer;
+  private patternLearner!: PatternLearner;
+  private routingOptimizer!: RoutingOptimizer;
   
   // Performance Tracking
-  private latencyTracker: LatencyTracker;
-  private throughputMonitor: ThroughputMonitor;
-  private capacityPredictor: CapacityPredictor;
+  private latencyTracker!: LatencyTracker;
+  private throughputMonitor!: ThroughputMonitor;
+  private capacityPredictor!: CapacityPredictor;
 
   constructor(registry: MCPRegistry, config: Partial<RoutingConfig> = {}) {
     super();
@@ -962,6 +988,26 @@ export class RoutingEngine extends EventEmitter {
   }
 
   /**
+   * Map domain string to MCPType enum
+   */
+  private mapDomainToMCPType(domain: string): MCPType {
+    const domainMapping: Record<string, MCPType> = {
+      'user': MCPType.USER,
+      'chat': MCPType.CHAT,
+      'stats': MCPType.STATS,
+      'logs': MCPType.LOGS,
+      'vector': MCPType.VECTOR,
+      'graph': MCPType.GRAPH,
+      'document': MCPType.DOCUMENT,
+      'temporal': MCPType.TEMPORAL,
+      'spatial': MCPType.SPATIAL,
+      'hybrid': MCPType.HYBRID
+    };
+    
+    return domainMapping[domain.toLowerCase()] || MCPType.DOCUMENT;
+  }
+
+  /**
    * Create new MCP dynamically based on patterns with enterprise security
    */
   async createDynamicMCP(
@@ -985,7 +1031,8 @@ export class RoutingEngine extends EventEmitter {
       const mcpId = `enterprise-${domain}-${type}-${Date.now()}`;
       const mcpSpec = {
         name: mcpId,
-        type: domain,
+        domain: domain,
+        type: this.mapDomainToMCPType(domain),
         tier: type,
         config: {
           securityRequirements: securityRequirements || 0.5,
@@ -1202,7 +1249,7 @@ export class RoutingEngine extends EventEmitter {
       if (mlPrediction && mlPrediction.confidence > 0.8) {
         baseDecision = this.createDecisionFromMLPrediction(mlPrediction, classification);
       } else if (similarPatterns.length > 0) {
-        baseDecision = this.createDecisionFromPatterns(similarPatterns, classification, registry);
+        baseDecision = await this.createDecisionFromPatterns(similarPatterns, classification, registry);
       } else {
         // Fallback to intelligent balanced strategy
         baseDecision = await this.intelligentBalancedStrategy(record, classification, registry);
@@ -1239,7 +1286,7 @@ export class RoutingEngine extends EventEmitter {
     } catch (error) {
       console.error('ML enhanced routing failed:', error);
       // Fallback to standard intelligent routing
-      return this.intelligentBalancedStrategy(record, classification, registry);
+      return await this.intelligentBalancedStrategy(record, classification, registry);
     }
   }
   
@@ -1333,15 +1380,21 @@ export class RoutingEngine extends EventEmitter {
       
       return {
         targetMCPs: newMCPId ? [newMCPId] : [],
+        strategy: 'primary',
         confidence: 0.8,
         reasoning: 'Created new MCP for domain',
         alternativeRoutes: [],
         executionPlan: newMCPId ? [{
-          mcpId: newMCPId,
-          operation: 'write',
-          priority: 1,
-          dependencies: [],
-          estimatedDuration: 100
+          stepId: `step-${newMCPId}-${Date.now()}`,
+          targetMCP: newMCPId,
+          operation: 'store' as const,
+          parameters: {
+            recordId: record.id,
+            domain: record.domain,
+            type: record.type
+          },
+          estimatedDuration: 100,
+          dependencies: []
         }] : []
       };
     }
@@ -1359,6 +1412,7 @@ export class RoutingEngine extends EventEmitter {
 
     return {
       targetMCPs: selectedMCPs.map(mcp => mcp.id),
+      strategy: 'replicated',
       confidence: await this.calculateRoutingConfidence(selectedMCPs, classification),
       reasoning: this.generateIntelligentReasoning(selectedMCPs, scoredMCPs),
       alternativeRoutes: this.findAlternativeRoutes(Array.from(candidates.values()), selectedMCPs),
@@ -1387,15 +1441,21 @@ export class RoutingEngine extends EventEmitter {
       
       return {
         targetMCPs: newMCPId ? [newMCPId] : [],
+        strategy: targetType === 'hot' ? 'cached' : 'archived',
         confidence: 0.9,
         reasoning: `Optimized for ${targetType} access pattern`,
         alternativeRoutes: [],
         executionPlan: newMCPId ? [{
-          mcpId: newMCPId,
-          operation: 'write',
-          priority: 1,
-          dependencies: [],
-          estimatedDuration: targetType === 'hot' ? 50 : 200
+          stepId: `step-${newMCPId}-${Date.now()}`,
+          targetMCP: newMCPId,
+          operation: 'store' as const,
+          parameters: {
+            recordId: record.id,
+            domain: record.domain,
+            type: record.type
+          },
+          estimatedDuration: targetType === 'hot' ? 50 : 200,
+          dependencies: []
         }] : []
       };
     }
@@ -1403,11 +1463,13 @@ export class RoutingEngine extends EventEmitter {
     // Select best performing MCP of the target type
     const bestMCP = (await Promise.all(domainCandidates.map(async mcp => ({ mcp, metrics: await mcp.getMetrics() }))))
       .reduce((best, current) => 
-        current.metrics.avgReadLatency < best.metrics.avgReadLatency ? current : best
+        ((current.metrics as any).avgReadLatency || current.metrics.avgQueryTime || 0) < 
+        ((best.metrics as any).avgReadLatency || best.metrics.avgQueryTime || 0) ? current : best
       ).mcp;
 
     return {
       targetMCPs: [bestMCP.id],
+      strategy: targetType === 'hot' ? 'cached' : 'archived',
       confidence: 0.95,
       reasoning: `Optimized for ${targetType} tier`,
       alternativeRoutes: domainCandidates
@@ -1415,11 +1477,16 @@ export class RoutingEngine extends EventEmitter {
         .slice(0, 2)
         .map(mcp => [mcp.id]),
       executionPlan: [{
-        mcpId: bestMCP.id,
-        operation: 'write',
-        priority: 1,
-        dependencies: [],
-        estimatedDuration: (await bestMCP.getMetrics()).avgReadLatency || 100
+        stepId: `step-${bestMCP.id}-${Date.now()}`,
+        targetMCP: bestMCP.id,
+        operation: 'store' as const,
+        parameters: {
+          recordId: record.id,
+          domain: record.domain,
+          type: record.type
+        },
+        estimatedDuration: (await bestMCP.getMetrics()).avgQueryTime || 100,
+        dependencies: []
       }]
     };
   }
@@ -1437,28 +1504,28 @@ export class RoutingEngine extends EventEmitter {
       case 'user':
         // For user data, prefer MCPs with better security and privacy features
         candidates = candidates.filter(mcp => 
-          mcp.getCapabilities().supportedQueryTypes.includes('encryption')
+          mcp.getCapabilities().supportedQueryTypes?.includes('encryption')
         );
         break;
         
       case 'chat':
         // For chat data, prefer MCPs optimized for real-time access
         candidates = (await Promise.all(candidates.map(async mcp => ({ mcp, metrics: await mcp.getMetrics() }))))
-          .filter(item => item.metrics.avgReadLatency < 100)
+          .filter(item => ((item.metrics as any).avgReadLatency || item.metrics.avgQueryTime || 0) < 100)
           .map(item => item.mcp);
         break;
         
       case 'stats':
         // For stats, prefer MCPs with good aggregation capabilities
         candidates = candidates.filter(mcp =>
-          mcp.getCapabilities().supportedQueryTypes.includes('aggregation')
+          mcp.getCapabilities().supportedQueryTypes?.includes('aggregation')
         );
         break;
         
       case 'logs':
         // For logs, prefer cold storage with compression
         candidates = candidates.filter(mcp =>
-          mcp.tier === 'cold' && 
+          mcp.tier === MCPTier.COLD && 
           mcp.getConfiguration().compressionEnabled
         );
         break;
@@ -1479,15 +1546,21 @@ export class RoutingEngine extends EventEmitter {
       
       return {
         targetMCPs: newMCPId ? [newMCPId] : [],
+        strategy: 'primary' as const,
         confidence: 0.85,
         reasoning: `Domain-specific routing for ${domain}`,
         alternativeRoutes: [],
         executionPlan: newMCPId ? [{
-          mcpId: newMCPId,
-          operation: 'write',
-          priority: 1,
-          dependencies: [],
-          estimatedDuration: 100
+          stepId: `step-${newMCPId}-${Date.now()}`,
+          targetMCP: newMCPId,
+          operation: 'store' as const,
+          parameters: {
+            recordId: record.id,
+            domain: record.domain,
+            type: record.type
+          },
+          estimatedDuration: 100,
+          dependencies: []
         }] : []
       };
     }
@@ -1497,6 +1570,7 @@ export class RoutingEngine extends EventEmitter {
     
     return {
       targetMCPs: [selectedMCP.id],
+      strategy: 'primary',
       confidence: 0.9,
       reasoning: `Domain-specific optimization for ${domain}`,
       alternativeRoutes: candidates
@@ -1504,11 +1578,16 @@ export class RoutingEngine extends EventEmitter {
         .slice(0, 2)
         .map(mcp => [mcp.id]),
       executionPlan: [{
-        mcpId: selectedMCP.id,
-        operation: 'write',
-        priority: 1,
-        dependencies: [],
-        estimatedDuration: (await selectedMCP.getMetrics()).avgReadLatency || 100
+        stepId: `step-${selectedMCP.id}-${Date.now()}`,
+        targetMCP: selectedMCP.id,
+        operation: 'store' as const,
+        parameters: {
+          recordId: record.id,
+          domain: record.domain,
+          type: record.type
+        },
+        estimatedDuration: (await selectedMCP.getMetrics()).avgQueryTime || 100,
+        dependencies: []
       }]
     };
   }
@@ -1530,6 +1609,7 @@ export class RoutingEngine extends EventEmitter {
     
     return {
       targetMCPs: [selectedMCP.id],
+      strategy: 'replicated',
       confidence: 0.7,
       reasoning: `Load balancing strategy`,
       alternativeRoutes: candidates
@@ -1537,11 +1617,16 @@ export class RoutingEngine extends EventEmitter {
         .slice(0, 2)
         .map(mcp => [mcp.id]),
       executionPlan: [{
-        mcpId: selectedMCP.id,
-        operation: 'write',
-        priority: 1,
-        dependencies: [],
-        estimatedDuration: (await selectedMCP.getMetrics()).avgReadLatency || 100
+        stepId: `step-${selectedMCP.id}-${Date.now()}`,
+        targetMCP: selectedMCP.id,
+        operation: 'store' as const,
+        parameters: {
+          recordId: record.id,
+          domain: record.domain,
+          type: record.type
+        },
+        estimatedDuration: (await selectedMCP.getMetrics()).avgQueryTime || 100,
+        dependencies: []
       }]
     };
   }
@@ -1553,6 +1638,7 @@ export class RoutingEngine extends EventEmitter {
   ): Promise<RoutingDecision> {
     return {
       targetMCPs: [],
+      strategy: 'archived',
       confidence: 0.1,
       reasoning: 'Fallback strategy activated',
       alternativeRoutes: [],
@@ -1619,7 +1705,7 @@ export class RoutingEngine extends EventEmitter {
 
     // Performance factors
     const metrics = await mcp.getMetrics();
-    const latency = metrics.avgReadLatency;
+    const latency = (metrics as any).avgReadLatency || metrics.avgQueryTime || 0;
     score -= latency / 10; // Penalize high latency
 
     // Health factors
@@ -1630,17 +1716,16 @@ export class RoutingEngine extends EventEmitter {
 
     // Capacity factors
     const config = mcp.getConfiguration();
-    const metrics = await mcp.getMetrics();
     const utilizationRatio = metrics.totalRecords / config.maxRecords;
     score -= utilizationRatio * 30; // Penalize high utilization
 
     // Type matching
     const isOptimalType = (
       (classification.classification === DataClassification.REALTIME || classification.classification === DataClassification.FREQUENT) &&
-      mcp.tier === 'hot'
+      mcp.tier === MCPTier.HOT
     ) || (
       (classification.classification === DataClassification.OCCASIONAL || classification.classification === DataClassification.ARCHIVE) &&
-      mcp.tier === 'cold'
+      mcp.tier === MCPTier.COLD
     );
     
     if (isOptimalType) score += 25;
@@ -1652,7 +1737,7 @@ export class RoutingEngine extends EventEmitter {
     if (mcps.length === 0) return 0;
     
     const healths = await Promise.all(mcps.map(mcp => mcp.getHealth()));
-    const avgHealth = healths.reduce((sum, health) => {
+    const avgHealth = healths.reduce((sum: number, health: any) => {
       switch (health.status) {
         case 'healthy': return sum + 1;
         case 'degraded': return sum + 0.7;
@@ -1669,8 +1754,8 @@ export class RoutingEngine extends EventEmitter {
     if (selectedMCPs.length > 0) {
       const bestMCP = selectedMCPs[0];
       reasoning += `Selected MCP ${bestMCP.id} (score: ${scoredMCPs[0].score.toFixed(1)}); `;
-      reasoning += `Performance: ${(bestMCP.getMetrics().then(m => m.avgReadLatency))}ms write latency; `;
-      reasoning += `Health: ${(bestMCP.getHealth().then(h => h.status))}; `;
+      reasoning += `Performance: ${(bestMCP.getMetrics().then((m: any) => m.avgReadLatency))}ms write latency; `;
+      reasoning += `Health: ${(bestMCP.getHealth().then((h: any) => h.status))}; `;
       reasoning += `Utilization: ${((bestMCP.metadata.recordCount / bestMCP.getConfiguration().maxRecords) * 100).toFixed(1)}%`;
     }
     
@@ -1689,11 +1774,16 @@ export class RoutingEngine extends EventEmitter {
 
   private createExecutionPlan(mcps: BaseMCP[], record: DataRecord): RoutingExecutionStep[] {
     return mcps.map((mcp, index) => ({
-      mcpId: mcp.id,
-      operation: 'write' as const,
-      priority: index + 1,
-      dependencies: [],
-      estimatedDuration: 100
+      stepId: `step-${mcp.id}-${Date.now()}-${index}`,
+      targetMCP: mcp.id,
+      operation: 'store' as const,
+      parameters: {
+        recordId: record.id,
+        domain: record.domain,
+        type: record.type
+      },
+      estimatedDuration: 100,
+      dependencies: index > 0 ? [`step-${mcps[0].id}-${Date.now()}-0`] : []
     }));
   }
 
@@ -1716,20 +1806,24 @@ export class RoutingEngine extends EventEmitter {
     switch (domain) {
       case 'user':
         // Prefer MCPs with better security
-        return mcps.reduce((best, current) =>
-          current.getCapabilities().supportedQueryTypes.includes('encryption') ? current : best
-        );
+        return mcps.reduce((best, current) => {
+          if (!current) return best;
+          const capabilities = current.getCapabilities();
+          return capabilities.supportedQueryTypes?.includes('encryption') ? current : best;
+        }, mcps[0]);
       case 'chat':
         // Prefer MCPs with lower read latency
         const chatMetrics = await Promise.all(mcps.map(async mcp => ({ mcp, metrics: await mcp.getMetrics() })));
         return chatMetrics.reduce((best, current) =>
-          current.metrics.avgReadLatency < best.metrics.avgReadLatency ? current : best
+          ((current.metrics as any).avgReadLatency || current.metrics.avgQueryTime || 0) < 
+          ((best.metrics as any).avgReadLatency || best.metrics.avgQueryTime || 0) ? current : best
         ).mcp;
       default:
         // Default to best performing
         const defaultMetrics = await Promise.all(mcps.map(async mcp => ({ mcp, metrics: await mcp.getMetrics() })));
         return defaultMetrics.reduce((best, current) =>
-          current.metrics.avgReadLatency < best.metrics.avgReadLatency ? current : best
+          ((current.metrics as any).avgReadLatency || current.metrics.avgQueryTime || 0) < 
+          ((best.metrics as any).avgReadLatency || best.metrics.avgQueryTime || 0) ? current : best
         ).mcp;
     }
   }
@@ -1800,6 +1894,7 @@ export class RoutingEngine extends EventEmitter {
   ): RoutingDecision {
     return {
       targetMCPs: [],
+      strategy: 'archived',
       confidence: 0,
       reasoning: 'Fallback strategy activated',
       alternativeRoutes: [],
@@ -1917,8 +2012,8 @@ export class RoutingEngine extends EventEmitter {
     else score -= 50;
     
     // Capacity factors
-    const metrics = await mcp.getMetrics();
-    const utilization = metrics.totalRecords / mcp.getConfiguration().maxRecords;
+    const capacityMetrics = await mcp.getMetrics();
+    const utilization = capacityMetrics.totalRecords / mcp.getConfiguration().maxRecords;
     score -= utilization * 30; // Penalize high utilization
     
     return Math.max(0, score);
@@ -1945,13 +2040,15 @@ export class RoutingEngine extends EventEmitter {
   private createDecisionFromMLPrediction(prediction: MLPrediction, classification: ClassificationResult): RoutingDecision {
     return {
       targetMCPs: prediction.recommendedMCPs,
+      strategy: 'sharded',
       confidence: prediction.confidence,
       reasoning: `ML-enhanced routing: ${prediction.reasoning}`,
       alternativeRoutes: prediction.alternativeOptions,
       executionPlan: prediction.recommendedMCPs.map((mcpId, index) => ({
-        mcpId,
-        operation: 'write' as const,
-        priority: index + 1,
+        stepId: `step-${index + 1}`,
+        targetMCP: mcpId,
+        operation: 'store' as const,
+        parameters: { priority: index + 1 },
         dependencies: [],
         estimatedDuration: prediction.performanceForecast.expectedLatency
       }))
@@ -1972,6 +2069,7 @@ export class RoutingEngine extends EventEmitter {
     
     return {
       targetMCPs,
+      strategy: 'primary',
       confidence: bestPattern.confidence,
       reasoning: `Pattern-based routing using pattern ${bestPattern.id}`,
       alternativeRoutes: patterns.slice(1, 3).map(p => [...new Set(p.successfulRoutes)].slice(0, 1)),

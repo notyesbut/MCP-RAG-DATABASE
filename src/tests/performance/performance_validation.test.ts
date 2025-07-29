@@ -3,10 +3,11 @@
  * Ensures the system meets all performance targets after fixes
  */
 
-import { describe, test, expect, beforeAll, afterAll } from 'vitest';
+// Jest globals are available without imports
+// describe, test, expect, beforeAll, afterAll are provided by Jest
 import { PerformanceOptimizer, PerformanceTarget } from '../../intelligence/performance_optimizer';
 import { TierClassifier } from '../../mcp/classification/TierClassifier';
-import { MCPTier } from '../../mcp/core/BaseMCP';
+import { MCPPerformanceTier as MCPTier } from '../../types/mcp.types';
 import { CachePredictor } from '../../intelligence/cache_predictor';
 import { performance } from 'perf_hooks';
 

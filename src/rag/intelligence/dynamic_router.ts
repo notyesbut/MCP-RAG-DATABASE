@@ -193,21 +193,29 @@ export class DynamicRouter {
       
       const health = await mcp.getHealth();
       const metrics = await mcp.getMetrics();
+      // Get MCP domain and type
+      const mcpDomain = mcp.domain || 'general';
+      const mcpTier = mcp.type || 'hot';
+      
       const capability = {
-        supportedQueries: ['basic', 'aggregation', 'search'],
-        maxQuerySize: 10000,
-        features: []
+        mcpId: mcpId,
+        queryTypes: ['basic', 'aggregation', 'search'],
+        domains: [mcpDomain],
+        tier: mcpTier as 'hot' | 'cold',
+        avgResponseTime: metrics?.avgQueryTime || 100,
+        currentLoad: 0, // Will be set below
+        maxConcurrentQueries: 10,
+        priority: 1 // Will be recalculated below
       };
-      const load = metrics.totalRecords / mcp.getConfiguration().maxRecords;
+      const load = metrics?.totalRecords ? metrics.totalRecords / mcp.getConfiguration().maxRecords : 0;
       const performanceMetrics = this.performanceMetrics.get(mcpId);
 
-      states.push({
-        mcpId,
-        ...capability,
-        currentLoad: load,
-        avgResponseTime: metrics?.avgLatency || capability.performance?.avgLatency || 100,
-        priority: this.calculateMCPPriority(mcpId, health, load, metrics)
-      });
+      // Update calculated values
+      capability.currentLoad = load;
+      capability.avgResponseTime = metrics?.avgQueryTime || capability.avgResponseTime;
+      capability.priority = this.calculateMCPPriority(mcpId, health, load, performanceMetrics);
+      
+      states.push(capability);
     }
 
     return states;
@@ -608,7 +616,7 @@ export class DynamicRouter {
     mcpId: string,
     health: any,
     load: number,
-    metrics?: MCPPerformanceMetrics
+    metrics?: any
   ): number {
     let priority = 5; // Base priority
 

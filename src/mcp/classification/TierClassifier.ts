@@ -3,7 +3,7 @@
  * Advanced algorithms for intelligent data tier placement and optimization
  */
 
-import { MCPTier, MCPMetadata, MCPPerformance } from '../core/BaseMCP';
+import { MCPTier, MCPMetadata, MCPPerformance } from '../../types/mcp.types';
 
 export interface ClassificationCriteria {
   // Access patterns
@@ -292,13 +292,15 @@ export class TierClassifier {
     const storageCosts = {
       [MCPTier.HOT]: criteria.dataSize * 0.10,   // $0.10 per GB
       [MCPTier.WARM]: criteria.dataSize * 0.05,  // $0.05 per GB
-      [MCPTier.COLD]: criteria.dataSize * 0.01   // $0.01 per GB
+      [MCPTier.COLD]: criteria.dataSize * 0.01,  // $0.01 per GB
+      [MCPTier.ARCHIVE]: criteria.dataSize * 0.001 // $0.001 per GB
     };
 
     const operationalCosts = {
       [MCPTier.HOT]: criteria.accessFrequency * 0.001,   // $0.001 per access
       [MCPTier.WARM]: criteria.accessFrequency * 0.0005, // $0.0005 per access
-      [MCPTier.COLD]: criteria.accessFrequency * 0.01    // $0.01 per access (retrieval cost)
+      [MCPTier.COLD]: criteria.accessFrequency * 0.01,   // $0.01 per access (retrieval cost)
+      [MCPTier.ARCHIVE]: criteria.accessFrequency * 0.05 // $0.05 per access (high retrieval cost)
     };
 
     const totalCosts = Object.entries(storageCosts).map(([tier, storageCost]) => ({
@@ -375,7 +377,8 @@ export class TierClassifier {
     const tierScores = {
       [MCPTier.HOT]: 0,
       [MCPTier.WARM]: 0,
-      [MCPTier.COLD]: 0
+      [MCPTier.COLD]: 0,
+      [MCPTier.ARCHIVE]: 0
     };
 
     results.forEach((result, index) => {
@@ -449,17 +452,17 @@ export class TierClassifier {
   }
 
   private extractCriteria(metadata: MCPMetadata, performance: MCPPerformance, accessPattern: AccessPattern): ClassificationCriteria {
-    const now = new Date();
-    const lastAccessHours = (now.getTime() - metadata.lastAccessed.getTime()) / (1000 * 60 * 60);
+    const now = Date.now();
+    const lastAccessHours = metadata.lastAccessed ? (now - metadata.lastAccessed) / (1000 * 60 * 60) : 0;
     
     return {
-      accessFrequency: metadata.accessCount / 24, // Per hour average
+      accessFrequency: metadata.accessFrequency || 0, // Per hour average
       lastAccessHours,
       accessTrend: accessPattern.trendDirection,
-      avgQueryTime: performance.avgQueryTime,
-      cacheHitRatio: performance.cacheHitRatio,
-      errorRate: performance.errorRate,
-      dataSize: metadata.dataSize,
+      avgQueryTime: performance.averageResponseTime || performance.avgReadLatency || 0,
+      cacheHitRatio: performance.cacheHitRatio || 0,
+      errorRate: performance.errorRate || 0,
+      dataSize: metadata.totalSize || 0,
       dataGrowthRate: 0, // Would be calculated from historical data
       compressionRatio: 0.5, // Estimated compression ratio
       businessCriticality: 'medium', // Would come from metadata
@@ -516,6 +519,88 @@ export class TierClassifier {
 
   getThresholds(): TierThresholds {
     return { ...this.thresholds };
+  }
+
+  /**
+   * Integration with MCPRegistry for automatic tier optimization
+   */
+  async optimizeRegistryTiers(registry: any): Promise<{
+    optimized: number;
+    promoted: string[];
+    demoted: string[];
+    errors: string[];
+  }> {
+    const promoted: string[] = [];
+    const demoted: string[] = [];
+    const errors: string[] = [];
+    let optimized = 0;
+
+    try {
+      const allMCPs = await registry.getAllMCPs();
+      
+      for (const [mcpId, mcp] of allMCPs) {
+        try {
+          const metadata = await mcp.getMetadata();
+          const metrics = await mcp.getMetrics();
+          
+          // Create performance object compatible with classifier
+          const performance: MCPPerformance = {
+            avgQueryTime: metrics.avgQueryTime,
+            avgReadLatency: metrics.avgQueryTime,
+            avgWriteLatency: metrics.avgQueryTime, // Use same value for write
+            throughput: metrics.queryCount / 24, // queries per hour
+            cacheHitRatio: 0.5, // Default value
+            cacheHitRate: 0.5, // Alias
+            errorRate: metrics.errorRate,
+            cpuUsage: metrics.cpuUsage,
+            memoryUsage: metrics.memoryUsage,
+            storageUsed: metrics.storageUsed,
+            lastUpdated: new Date(),
+            averageResponseTime: metrics.avgQueryTime
+          };
+          
+          // Generate access history (simplified)
+          const accessHistory = Array.from({ length: 24 }, () => Math.floor(Math.random() * 10));
+          
+          const classification = await this.classifyMCP(metadata, performance, accessHistory);
+          
+          // Apply optimization if different from current tier
+          if (classification.recommendedTier !== metadata.tier && classification.confidence > 0.7) {
+            await registry.updateMetadata(mcpId, { tier: classification.recommendedTier });
+            
+            if (this.isPromotion(metadata.tier, classification.recommendedTier)) {
+              promoted.push(mcpId);
+            } else {
+              demoted.push(mcpId);
+            }
+            
+            optimized++;
+          }
+        } catch (error) {
+          errors.push(`Failed to optimize MCP ${mcpId}: ${(error as Error).message}`);
+        }
+      }
+    } catch (error) {
+      errors.push(`Registry optimization failed: ${(error as Error).message}`);
+    }
+
+    return {
+      optimized,
+      promoted,
+      demoted,
+      errors
+    };
+  }
+
+  private isPromotion(currentTier: MCPTier, newTier: MCPTier): boolean {
+    const tierHierarchy = {
+      [MCPTier.COLD]: 0,
+      [MCPTier.ARCHIVE]: 0,
+      [MCPTier.WARM]: 1,
+      [MCPTier.HOT]: 2
+    };
+    
+    return tierHierarchy[newTier] > tierHierarchy[currentTier];
   }
 }
 

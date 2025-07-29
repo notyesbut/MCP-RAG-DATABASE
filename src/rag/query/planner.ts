@@ -12,6 +12,7 @@ import {
   QueryOptimization
 } from '../../types/query.types';
 import { MCPRegistry } from '../../mcp/registry/MCPRegistry';
+import { BaseMCP } from '../../core/mcp/base_mcp';
 
 export class QueryExecutionPlanner {
   private mcpRegistry: MCPRegistry;

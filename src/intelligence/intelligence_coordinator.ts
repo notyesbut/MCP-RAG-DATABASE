@@ -7,15 +7,15 @@ import { PatternLearner } from './pattern_learner';
 import { IndexOptimizer } from './index_optimizer';
 import { CachePredictor } from './cache_predictor';
 import { NeuralQueryOptimizer } from './neural_query_optimizer';
-import { QueryPattern, AccessPattern, PerformanceMetrics, LearningModel } from '../types/intelligence.types';
+import { QueryPattern, AccessPattern, PerformanceMetrics, LearningModel, PredictiveInsight, QueryAnomaly, MLRecommendation, ActiveQuery } from '../types/intelligence.types';
 import { MCPRegistry } from '../mcp/registry/MCPRegistry';
 
 export class IntelligenceCoordinator {
   private patternLearner: PatternLearner = new PatternLearner();
-  private indexOptimizer: IndexOptimizer;
-  private cachePredictor: CachePredictor;
-  private neuralOptimizer: NeuralQueryOptimizer;
-  private performanceMonitor: PerformanceMonitor;
+  private indexOptimizer!: IndexOptimizer;
+  private cachePredictor!: CachePredictor;
+  private neuralOptimizer!: NeuralQueryOptimizer;
+  private performanceMonitor!: PerformanceMonitor;
   private coordinationMemory: Map<string, any> = new Map();
 
   constructor(private readonly registry: MCPRegistry, private readonly config: IntelligenceConfig = {}) {
@@ -170,7 +170,7 @@ export class IntelligenceCoordinator {
       switch (bottleneck.type) {
         case 'slow_queries':
           const queryAdaptation = await this.neuralOptimizer.realTimeOptimization(
-            bottleneck.data
+            bottleneck.data as Map<string, ActiveQuery>
           );
           adaptations.queryAdaptations.push(...queryAdaptation);
           break;
@@ -392,9 +392,21 @@ export class IntelligenceCoordinator {
     const insights = this.neuralOptimizer.getOptimizationInsights();
     
     // Real-time optimization for active queries
-    const activeQueryMap = new Map(
-      state.activeQueries.map(q => [q.queryId, q])
-    );
+    const activeQueryMap = new Map<string, ActiveQuery>();
+    state.activeQueries.forEach(q => {
+      const activeQuery: ActiveQuery = {
+        queryId: q.queryId,
+        query: q.query,
+        startTime: Date.now() - q.executionTime, // Estimate start time
+        estimatedTime: q.executionTime * 1.2, // Add buffer
+        estimatedCost: 10, // Default cost
+        mcpLoad: 0.5, // Default load
+        executionTime: q.executionTime,
+        mcpsUsed: q.mcpsUsed,
+        resultSize: q.resultSize
+      };
+      activeQueryMap.set(q.queryId, activeQuery);
+    });
     
     const adaptations = await this.neuralOptimizer.realTimeOptimization(activeQueryMap);
 
@@ -652,7 +664,11 @@ class PerformanceMonitor {
       query: 'SELECT * FROM users WHERE active = true',
       executionTime: 120,
       mcpsUsed: ['user_mcp'],
-      resultSize: 1000
+      resultSize: 1000,
+      startTime: Date.now() - 120, // Started 120ms ago
+      estimatedTime: 150, // Estimated 150ms
+      estimatedCost: 10,
+      mcpLoad: 0.5
     }];
   }
 
@@ -692,14 +708,6 @@ interface SystemState {
   systemLoad: any;
 }
 
-interface ActiveQuery {
-  queryId: string;
-  query: string;
-  executionTime: number;
-  mcpsUsed: string[];
-  resultSize: number;
-}
-
 interface QueryContext {
   primaryMCP: string;
   availableMCPs: string[];
@@ -730,6 +738,9 @@ interface PatternInsights {
   slowestQueries: QueryPattern[];
   hottestMCPs: AccessPattern[];
   optimizationOpportunities: string[];
+  predictiveInsights?: PredictiveInsight[];
+  anomalies?: QueryAnomaly[];
+  recommendations?: MLRecommendation[];
 }
 
 interface IndexingResults {

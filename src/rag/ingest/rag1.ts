@@ -160,7 +160,7 @@ export class RAG1Controller extends EventEmitter {
       this.emit('initialized', {
         timestamp: Date.now(),
         config: this.config,
-        availableMCPs: this.registry.getAllMCPs().size
+        availableMCPs: (await this.registry.getAllMCPs()).size
       });
       
     } catch (error) {
@@ -182,7 +182,14 @@ export class RAG1Controller extends EventEmitter {
 
     const startTime = Date.now();
     const recordId = metadata?.id || uuidv4();
-    const record: DataRecord = { id: recordId, domain: metadata?.domain, timestamp: metadata?.timestamp, data, metadata };
+    const record: DataRecord = { 
+      id: recordId, 
+      domain: metadata?.domain || 'general', 
+      type: metadata?.type || 'general',
+      timestamp: metadata?.timestamp || Date.now(), 
+      data, 
+      metadata 
+    };
 
     try {
       this.metrics.totalIngested++;
@@ -641,7 +648,7 @@ export class RAG1Controller extends EventEmitter {
   private async isRebalancingNeeded(): Promise<boolean> {
     // Check if MCP rebalancing is needed
     const registryMetrics = await this.registry.getSystemMetrics();
-    return registryMetrics.avgQueryTime > 500; // Simplified check
+    return (registryMetrics as any).avgQueryTime > 500; // Simplified check
   }
 
   private async getPerformanceRecommendations(): Promise<string[]> {
@@ -676,8 +683,9 @@ export class RAG1Controller extends EventEmitter {
         try {
           await this.registry.createMCP({
             name: `${domain}-hot-primary`,
-            type: domain,
-            tier: 'hot',
+            domain: domain,
+            type: domain as any,
+            tier: 'hot' as any,
             config: {
               maxRecords: 100000,
               maxSize: 1024 * 1024 * 1024, // 1GB
@@ -729,11 +737,11 @@ export class RAG1Controller extends EventEmitter {
     };
     
     // MCP optimization recommendations
-    if (mcpStats.errorRate > 0.05) {
+    if ((mcpStats as any).errorRate > 0.05) {
       recommendations.mcpOptimizations.push('High error rate detected - review unhealthy MCPs');
     }
     
-    if (mcpStats.avgQueryTime > 1000) {
+    if ((mcpStats as any).avgQueryTime > 1000) {
       recommendations.performanceImprovements.push('Query latency high - consider adding indexes or caching');
     }
     

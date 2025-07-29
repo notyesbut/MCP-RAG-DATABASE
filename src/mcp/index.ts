@@ -4,7 +4,17 @@
  */
 
 // Core Components
-export { BaseMCP, MCPType, MCPTier, MCPStatus, MCPQuery, MCPResult, MCPMetadata, MCPPerformance, MCPQueryOptions } from './core/BaseMCP';
+export { BaseMCP } from '../core/mcp/base_mcp';
+export { 
+  MCPType, 
+  MCPPerformanceTier as MCPTier, 
+  MCPStatus, 
+  MCPQuery, 
+  MCPResult, 
+  MCPMetadata, 
+  PerformanceMetrics as MCPPerformance, 
+  MCPQueryOptions 
+} from '../types/mcp.types';
 
 // Registry System
 export { MCPRegistry, MCPRegistryConfig, MCPCreationRequest, MCPRegistryStats } from './registry/MCPRegistry';
@@ -15,8 +25,7 @@ export {
   ClassificationCriteria, 
   ClassificationResult, 
   TierThresholds, 
-  AccessPattern,
-  AggregationType
+  AccessPattern
 } from './classification/TierClassifier';
 
 // Migration System
@@ -53,8 +62,8 @@ export {
   AlertLevel 
 } from './MCPOrchestrator';
 
-// Re-export aggregation type from classification for convenience
-export { AggregationType as QueryAggregationType } from './classification/TierClassifier';
+// Re-export aggregation type from query types for convenience
+export { AggregationType as QueryAggregationType } from '../types/query.types';
 
 /**
  * Quick Start Example:

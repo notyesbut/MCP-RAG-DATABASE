@@ -3,6 +3,8 @@
  * Learns from query patterns to optimize database performance
  */
 
+import { QueryAnomaly, MLRecommendation } from '../types/intelligence.types';
+
 // Type definitions
 export interface QueryPattern {
   id: string;
@@ -44,28 +46,13 @@ export interface LearningModel {
 }
 
 export interface PredictiveInsight {
-  type: string;
+  type: 'trending_pattern' | 'capacity_prediction' | 'performance_forecast';
   description: string;
   confidence: number;
   timeframe: string;
   impact: 'low' | 'medium' | 'high';
 }
 
-export interface QueryAnomaly {
-  type: string;
-  pattern: QueryPattern;
-  severity: 'low' | 'medium' | 'high';
-  description: string;
-  detected: number;
-}
-
-export interface MLRecommendation {
-  type: string;
-  priority: 'low' | 'medium' | 'high';
-  description: string;
-  action: string;
-  estimatedImpact: number;
-}
 
 export interface PatternLearnerConfig {
   maxPatterns?: number;

@@ -148,15 +148,15 @@ export class ProductionDemo {
   private async initializeSystem(config: DemoConfig): Promise<void> {
     logger.info('🔧 Initializing Enterprise Multi-MCP System...');
 
-    // Initialize MCP Registry
-    await this.mcpRegistry.initialize();
+    // Initialize MCP Registry (no initialization method needed)
+    // this.mcpRegistry.initialize() - not available
 
-    // Initialize RAG₁ Controller
-    await this.rag1Controller.initialize();
+    // Initialize RAG₁ Controller (no initialization method needed)
+    // await this.rag1Controller.initialize() - not available
     this.results.features.intelligentRouting = true;
 
-    // Initialize RAG₂ Controller
-    await this.rag2Controller.initialize();
+    // Initialize RAG₂ Controller (no initialization method needed)
+    // await this.rag2Controller.initialize() - not available
     this.results.features.naturalLanguageQueries = true;
 
     // Start monitoring if enabled
@@ -188,34 +188,34 @@ export class ProductionDemo {
 
     // Chat data
     const chatData = [
-      { id: 'c1', userId: 'u1', message: 'Hello everyone!', timestamp: new Date(), channel: 'general' },
-      { id: 'c2', userId: 'u2', message: 'How is the new system working?', timestamp: new Date(), channel: 'tech' },
-      { id: 'c3', userId: 'u3', message: 'Performance metrics look great!', timestamp: new Date(), channel: 'analytics' },
-      { id: 'c4', userId: 'u4', message: 'Team meeting at 3 PM', timestamp: new Date(), channel: 'general' }
+      { id: 'c1', userId: 'u1', message: 'Hello everyone!', timestamp: Date.now(), channel: 'general' },
+      { id: 'c2', userId: 'u2', message: 'How is the new system working?', timestamp: Date.now(), channel: 'tech' },
+      { id: 'c3', userId: 'u3', message: 'Performance metrics look great!', timestamp: Date.now(), channel: 'analytics' },
+      { id: 'c4', userId: 'u4', message: 'Team meeting at 3 PM', timestamp: Date.now(), channel: 'general' }
     ];
 
     // Analytics data
     const analyticsData = [
-      { metric: 'page_views', value: 1250, timestamp: new Date(), source: 'web' },
-      { metric: 'user_signups', value: 45, timestamp: new Date(), source: 'mobile' },
-      { metric: 'api_calls', value: 8750, timestamp: new Date(), source: 'api' },
-      { metric: 'database_queries', value: 12500, timestamp: new Date(), source: 'internal' }
+      { metric: 'page_views', value: 1250, timestamp: Date.now(), source: 'web' },
+      { metric: 'user_signups', value: 45, timestamp: Date.now(), source: 'mobile' },
+      { metric: 'api_calls', value: 8750, timestamp: Date.now(), source: 'api' },
+      { metric: 'database_queries', value: 12500, timestamp: Date.now(), source: 'internal' }
     ];
 
     // Log data
     const logData = [
-      { level: 'info', message: 'System started successfully', timestamp: new Date(), module: 'server' },
-      { level: 'warn', message: 'High memory usage detected', timestamp: new Date(), module: 'monitor' },
-      { level: 'error', message: 'Database connection timeout', timestamp: new Date(), module: 'database' },
-      { level: 'info', message: 'User authentication successful', timestamp: new Date(), module: 'auth' }
+      { level: 'info', message: 'System started successfully', timestamp: Date.now(), module: 'server' },
+      { level: 'warn', message: 'High memory usage detected', timestamp: Date.now(), module: 'monitor' },
+      { level: 'error', message: 'Database connection timeout', timestamp: Date.now(), module: 'database' },
+      { level: 'info', message: 'User authentication successful', timestamp: Date.now(), module: 'auth' }
     ];
 
     // Ingest data through RAG₁
     const allData = [
-      ...userData.map(data => ({ id: data.id, domain: 'user', timestamp: data.created.getTime(), data })),
-      ...chatData.map(data => ({ id: data.id, domain: 'chat', timestamp: data.timestamp.getTime(), data })),
-      ...analyticsData.map(data => ({ id: data.metric, domain: 'analytics', timestamp: data.timestamp.getTime(), data })),
-      ...logData.map(data => ({ id: data.message, domain: 'log', timestamp: data.timestamp.getTime(), data }))
+      ...userData.map(data => ({ id: data.id, domain: 'user', timestamp: data.created, data })),
+      ...chatData.map(data => ({ id: data.id, domain: 'chat', timestamp: data.timestamp, data })),
+      ...analyticsData.map(data => ({ id: data.metric, domain: 'analytics', timestamp: data.timestamp, data })),
+      ...logData.map(data => ({ id: data.message, domain: 'log', timestamp: data.timestamp, data }))
     ];
 
     for (const item of allData) {
@@ -255,9 +255,9 @@ export class ProductionDemo {
     // 2. Intelligent Routing
     logger.info('🧠 Testing Intelligent Routing...');
     const routingTests: DataRecord[] = [
-      { id: 'test-user', domain: 'user', timestamp: Date.now(), data: { name: 'Test User', email: 'test@example.com' } },
-      { id: 'test-hf', domain: 'high_frequency_data', timestamp: Date.now(), data: { event: 'page_view', timestamp: new Date() } },
-      { id: 'test-archive', domain: 'archive_data', timestamp: Date.now(), data: { old_log: 'System backup completed', date: '2023-01-01' } }
+      { id: 'test-user', domain: 'user', type: 'user_record', timestamp: Date.now(), data: { name: 'Test User', email: 'test@example.com' } },
+      { id: 'test-hf', domain: 'high_frequency_data', type: 'event', timestamp: Date.now(), data: { event: 'page_view', timestamp: Date.now() } },
+      { id: 'test-archive', domain: 'archive_data', type: 'log', timestamp: Date.now(), data: { old_log: 'System backup completed', date: '2023-01-01' } }
     ];
 
     for (const test of routingTests) {

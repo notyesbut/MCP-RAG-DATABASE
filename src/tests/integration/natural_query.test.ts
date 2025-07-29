@@ -4,7 +4,8 @@
  * Enterprise MCP System - Quality Assurance Lead Implementation
  */
 
-import { describe, test, expect, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
+// Jest globals are available without imports
+// describe, test, expect, beforeEach, afterEach, beforeAll, afterAll are provided by Jest
 import { RAG2Controller, createRAG2Controller } from '../../rag/query/rag2';
 import { NaturalQuery, QueryResult } from '../../types/query.types';
 import { MCPRegistry } from '../../mcp/registry/MCPRegistry';

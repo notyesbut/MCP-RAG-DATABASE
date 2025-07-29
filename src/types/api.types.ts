@@ -40,9 +40,9 @@ export interface User {
  */
 export interface AuthenticatedRequest extends Request {
   /** The user object attached to the request after successful authentication. */
-  user: User | undefined;
+  user?: User;
   /** The JWT token extracted from the request. */
-  token: string | undefined;
+  token?: string;
 }
 
 /**
@@ -247,10 +247,10 @@ export interface RealtimeQuerySubscription {
 // --- Admin Types ---
 
 /**
- * @interface MCPStatus
+ * @interface MCPStatusInfo
  * @description Contains status and metric information for a single MCP.
  */
-export interface MCPStatus {
+export interface MCPStatusInfo {
   id: string;
   name: string;
   type: 'hot' | 'cold';

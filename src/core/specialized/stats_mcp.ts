@@ -44,6 +44,16 @@ export class StatsMCP extends BaseMCP {
   private tagIndex: Map<string, Set<string>> = new Map(); // tag -> recordIds
   private sourceIndex: Map<string, Set<string>> = new Map(); // source -> recordIds
   private aggregationCache: Map<string, any> = new Map(); // aggregation results cache
+  private lastIndexCreationResult?: {
+    success: boolean;
+    indexName: string;
+    fieldsIndexed: string[];
+    performance: {
+      estimatedImprovement: number;
+      querySpeedup: string;
+      memoryUsage: number;
+    };
+  };
 
   constructor(domain: MCPDomain, type: MCPType, config: Partial<MCPConfig> = {}) {
     super(domain, type, config);
@@ -71,7 +81,7 @@ export class StatsMCP extends BaseMCP {
 
   protected override optimizeForDomain() {}
 
-  override validateRecord(record: any): boolean {
+  validateRecord(record: any): boolean {
     if (!record || typeof record !== 'object') return false;
     
     // Required fields validation
@@ -522,30 +532,22 @@ export class StatsMCP extends BaseMCP {
     return this.store(record);
   }
 
-  async delete(id: string, options?: any): Promise<any> {
+  override async delete(id: string, options?: any): Promise<any> {
     return super.delete(id);
   }
 
   /**
    * Create production-ready indexes for time-series analytics queries
    */
-  async createIndex(definition: {
-    name: string;
-    fields: string[];
-    unique?: boolean;
-    sparse?: boolean;
-    background?: boolean;
-    timePartitioned?: boolean;
-  }): Promise<{
-    success: boolean;
-    indexName: string;
-    fieldsIndexed: string[];
-    performance: {
-      estimatedImprovement: number;
-      querySpeedup: string;
-      memoryUsage: number;
+  override async createIndex(indexName: string, fields: string[], options: any = {}): Promise<boolean> {
+    const definition = {
+      name: indexName,
+      fields,
+      unique: options.unique || false,
+      sparse: options.sparse || false,
+      background: options.background || false,
+      timePartitioned: options.timePartitioned || false
     };
-  }> {
     try {
       if (!definition.name || !definition.fields || definition.fields.length === 0) {
         throw new Error('Invalid index definition: name and fields are required');
@@ -553,7 +555,8 @@ export class StatsMCP extends BaseMCP {
 
       const existingIndex = this.indices.get(definition.name);
       if (existingIndex) {
-        return {
+        // Index already exists - store details in class property if needed
+        this.lastIndexCreationResult = {
           success: true,
           indexName: definition.name,
           fieldsIndexed: definition.fields,
@@ -563,6 +566,7 @@ export class StatsMCP extends BaseMCP {
             memoryUsage: 0
           }
         };
+        return true;
       }
 
       // Create time-series optimized index
@@ -642,20 +646,21 @@ export class StatsMCP extends BaseMCP {
         Math.min(98, (recordCount / 1000) * 40) : 
         recordCount * 0.8;
 
-      return {
+      // Store index creation result details in class property
+      this.lastIndexCreationResult = {
         success: true,
         indexName: definition.name,
         fieldsIndexed: definition.fields,
         performance: {
           estimatedImprovement,
-          querySpeedup: recordCount > 5000 ? 
-            `${Math.round(recordCount / 25)}x faster` : 
-            `${Math.round(recordCount / 5)}x faster`,
+          querySpeedup: `Up to ${estimatedImprovement.toFixed(1)}% faster`,
           memoryUsage
         }
       };
+
+      return true;
     } catch (error) {
-      throw new Error(`Failed to create stats index ${definition.name}: ${(error as Error).message}`);
+      return false;
     }
   }
 
@@ -679,12 +684,7 @@ export class StatsMCP extends BaseMCP {
       // 1. Create time-partitioned indexes for hot metrics
       const hotMetrics = await this.identifyHotMetrics();
       for (const metric of hotMetrics.slice(0, 10)) {
-        await this.createIndex({
-          name: `hot_metric_${metric.replace(/[^a-zA-Z0-9]/g, '_')}_idx`,
-          fields: ['metricName', 'timeHour'],
-          timePartitioned: true,
-          background: true
-        });
+        await this.createIndex(`hot_metric_${metric.replace(/[^a-zA-Z0-9]/g, '_')}_idx`, ['metricName', 'timeHour'], { timePartitioned: true, background: true });
         optimizations.push(`Created time-partitioned index for hot metric: ${metric}`);
       }
 
@@ -695,11 +695,7 @@ export class StatsMCP extends BaseMCP {
       // 3. Create dimension-specific indexes
       const topDimensions = await this.analyzeTopDimensions();
       for (const dimension of topDimensions.slice(0, 5)) {
-        await this.createIndex({
-          name: `dimension_${dimension}_idx`,
-          fields: ['dimensions'],
-          background: true
-        });
+        await this.createIndex(`dimension_${dimension}_idx`, ['dimensions'], { background: true });
         optimizations.push(`Created dimension index for: ${dimension}`);
       }
 

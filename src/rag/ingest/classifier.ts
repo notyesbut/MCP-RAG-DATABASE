@@ -14,6 +14,12 @@ export interface ClassificationResult {
   confidence: number;
   features: ClassificationFeatures;
   reasoning: string[];
+  metadata?: {
+    processingTime?: number;
+    modelVersion?: string;
+    featureWeights?: Record<string, number>;
+    alternativeClassifications?: { classification: DataClassification; confidence: number }[];
+  };
 }
 
 // Enhanced classification for MCP integration
@@ -178,9 +184,9 @@ export class DataClassifier extends EventEmitter {
       reasoning,
       metadata: {
         processingTime: Date.now() - startTime,
-        modelsUsed: (await this.applyEnsembleMLClassification(features, domain)).modelsUsed,
-        patterns: await this.detectPatterns(record),
-        crossDomainScore: validatedResult.crossDomainScore
+        modelVersion: '1.0.0',
+        featureWeights: {},
+        alternativeClassifications: []
       }
     };
 
@@ -762,7 +768,7 @@ export class DataClassifier extends EventEmitter {
     if (record.metadata?.accessPattern) {
       const pattern = record.metadata.accessPattern;
       const recentAccesses = pattern.accessHistory.filter(
-        time => time > Date.now() - 24 * 60 * 60 * 1000
+        (time: number) => time > Date.now() - 24 * 60 * 60 * 1000
       ).length;
       return Math.min(recentAccesses / 100, 1.0);
     }

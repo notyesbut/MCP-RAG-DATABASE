@@ -5,7 +5,8 @@
 
 import { EventEmitter } from 'events';
 import { v4 as uuidv4 } from 'uuid';
-import { BaseMCP, MCPTier, MCPStatus, MCPResult, MCPMetadata } from '../core/BaseMCP';
+import { BaseMCP } from '../../core/mcp/base_mcp';
+import { MCPTier, MCPPerformanceTier, MCPStatus, MCPResult, MCPMetadata } from '../../types/mcp.types';
 import { TierClassifier, ClassificationResult } from '../classification/TierClassifier';
 import { MCPRegistry } from '../registry/MCPRegistry';
 
@@ -121,6 +122,32 @@ export class MCPMigrationEngine extends EventEmitter {
     this.startMigrationProcessor();
   }
 
+  // MCP Registration methods required by MCPOrchestrator
+  registerMCP(mcpId: string, mcp: BaseMCP): void {
+    // Register MCP for migration tracking
+    if (!this.migrationHistory.has(mcpId)) {
+      this.migrationHistory.set(mcpId, []);
+    }
+    this.emit('mcp-registered', { mcpId, mcp });
+  }
+
+  unregisterMCP(mcpId: string): void {
+    // Cancel any active migrations for this MCP
+    const activeMigration = Array.from(this.activeMigrations.entries())
+      .find(([, progress]) => progress.migrationId.includes(mcpId));
+    
+    if (activeMigration) {
+      this.cancelMigration(activeMigration[0]).catch(error => {
+        this.emit('migration-cancellation-failed', { mcpId, error });
+      });
+    }
+
+    // Remove from queue
+    this.migrationQueue = this.migrationQueue.filter(plan => plan.sourceMcpId !== mcpId);
+    
+    this.emit('mcp-unregistered', { mcpId });
+  }
+
   // Create migration plan
   async createMigrationPlan(
     mcpId: string, 
@@ -138,7 +165,7 @@ export class MCPMigrationEngine extends EventEmitter {
     }
 
     const metadata = await mcp.getMetadata();
-    const currentTier = metadata.type;
+    const currentTier = metadata.tier;
     
     if (currentTier === targetTier) {
       throw new Error(`MCP already in target tier: ${targetTier}`);
@@ -410,7 +437,7 @@ export class MCPMigrationEngine extends EventEmitter {
 
   private async prepareMigration(mcp: BaseMCP, plan: MigrationPlan): Promise<void> {
     // Set MCP to migration status
-    await mcp.setStatus(MCPStatus.MIGRATING);
+    await mcp.setStatus('migrating');
     
     // Validate source MCP health
     const healthCheck = await mcp.getHealth();
@@ -475,7 +502,7 @@ export class MCPMigrationEngine extends EventEmitter {
     await mcp.updateMetadata({ tier: plan.targetTier });
     
     // Update MCP status
-    await mcp.setStatus(MCPStatus.ACTIVE);
+    await mcp.setStatus('active');
   }
 
   private async cleanupMigration(mcp: BaseMCP, plan: MigrationPlan): Promise<void> {
@@ -614,7 +641,7 @@ export class MCPMigrationEngine extends EventEmitter {
     }
 
     const status = await mcp.getStatus();
-    if (status === MCPStatus.MIGRATING) {
+    if (status === 'migrating') {
       throw new Error('MCP is already being migrated');
     }
   }

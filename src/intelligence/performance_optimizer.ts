@@ -5,7 +5,7 @@
 
 import { EventEmitter } from 'events';
 import { Worker } from 'worker_threads';
-import { MCPMetadata, MCPPerformance } from '../mcp/core/BaseMCP';
+import { MCPMetadata, PerformanceMetrics as MCPPerformance } from '../types/mcp.types';
 
 export interface PerformanceTarget {
   queryLatency: number;      // <100ms for 95th percentile
@@ -61,12 +61,12 @@ export class PerformanceOptimizer extends EventEmitter {
   private performanceTargets: PerformanceTarget;
   private metrics: PerformanceMetrics = {} as PerformanceMetrics;
   private optimizationWorkers: Worker[] = [];
-  private simdOptimizer: SIMDOptimizer;
-  private neuralProfiler: NeuralProfiler;
-  private cacheIntelligence: CacheIntelligence;
-  private queryPipeline: ParallelQueryPipeline;
-  private memoryManager: AdvancedMemoryManager;
-  private networkOptimizer: NetworkOptimizer;
+  private simdOptimizer!: SIMDOptimizer;
+  private neuralProfiler!: NeuralProfiler;
+  private cacheIntelligence!: CacheIntelligence;
+  private queryPipeline!: ParallelQueryPipeline;
+  private memoryManager!: AdvancedMemoryManager;
+  private networkOptimizer!: NetworkOptimizer;
   
   constructor(targets: Partial<PerformanceTarget> = {}) {
     super();

@@ -3,7 +3,7 @@
  * Uses neural networks to optimize query execution plans and routing
  */
 
-import { NeuralQueryOptimization, QueryExecutionPlan, QueryStep, QueryPattern } from '../types/intelligence.types';
+import { NeuralQueryOptimization, QueryExecutionPlan, QueryStep, QueryPattern, ActiveQuery } from '../types/intelligence.types';
 
 export class NeuralQueryOptimizer {
   private queryOptimizations: Map<string, NeuralQueryOptimization> = new Map();
@@ -730,8 +730,8 @@ export class NeuralQueryOptimizer {
 
 // Neural Network implementation for query optimization
 class QueryNeuralNetwork {
-  private weights: number[][][];
-  private biases: number[][];
+  private weights!: number[][][];
+  private biases!: number[][];
 
   constructor(private config: NeuralOptimizerConfig) {
     this.initializeNetwork();
@@ -936,14 +936,7 @@ interface QueryRewriteResult {
   appliedRules: string[];
 }
 
-interface ActiveQuery {
-  queryId: string;
-  query: string;
-  startTime: number;
-  estimatedTime: number;
-  estimatedCost: number;
-  mcpLoad: number;
-}
+// ActiveQuery interface is imported from intelligence.types.ts
 
 interface OptimizationAdjustment {
   queryId: string;

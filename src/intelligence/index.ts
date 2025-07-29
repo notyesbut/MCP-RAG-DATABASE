@@ -12,6 +12,8 @@ export { IntelligenceCoordinator } from './intelligence_coordinator';
 // Export all types
 export * from '../types/intelligence.types';
 
+import { IntelligenceCoordinator } from './intelligence_coordinator';
+
 /**
  * Initialize the complete intelligence system
  */

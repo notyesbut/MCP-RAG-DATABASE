@@ -34,8 +34,8 @@ import { UserMCP } from '../core/specialized/user_mcp';
 import { ChatMCP } from '../core/specialized/chat_mcp';
 import { StatsMCP } from '../core/specialized/stats_mcp';
 import { LogsMCP } from '../core/specialized/logs_mcp';
-import { MCPTier, MCPType, BaseMCP } from '../mcp/core/BaseMCP';
-import { MCPDomain, MCPConfig, MCPType as MCPTypeFromTypes } from '../types/mcp.types';
+import { BaseMCP } from '../core/mcp/base_mcp';
+import { MCPDomain, MCPConfig, MCPConfiguration, MCPType, MCPTier } from '../types/mcp.types';
 
 // WebSocket handler
 import { setupWebSocket } from './websocket/socketHandler';
@@ -304,37 +304,37 @@ class ApiServer {
      */
     private registerMCPFactories(): void {
         // Register UserMCP factory
-        this.mcpRegistry.registerMCPFactory(MCPType.USER, (metadata, config) => {
+        this.mcpRegistry.registerMCPFactory(MCPType.USER, (metadata: any, config: any) => {
             // UserMCP expects hot/cold type from mcp.types
-            const mcpConfig = config as MCPConfig;
-            const temperatureType = metadata.tier === MCPTier.HOT ? MCPTypeFromTypes.HOT : MCPTypeFromTypes.COLD;
+            const mcpConfig = config as MCPConfiguration;
+            const temperatureType = metadata.tier === 'hot' ? MCPType.HOT : MCPType.COLD;
             const userMCP = new UserMCP('user' as MCPDomain, temperatureType, mcpConfig);
             return this.createMCPAdapter(userMCP, MCPType.USER, metadata);
         });
 
         // Register ChatMCP factory
-        this.mcpRegistry.registerMCPFactory(MCPType.CHAT, (metadata, config) => {
+        this.mcpRegistry.registerMCPFactory(MCPType.CHAT, (metadata: any, config: any) => {
             // ChatMCP expects hot/cold type from mcp.types
-            const mcpConfig = config as MCPConfig;
-            const temperatureType = metadata.tier === MCPTier.HOT ? MCPTypeFromTypes.HOT : MCPTypeFromTypes.COLD;
+            const mcpConfig = config as MCPConfiguration;
+            const temperatureType = metadata.tier === 'hot' ? MCPType.HOT : MCPType.COLD;
             const chatMCP = new ChatMCP('chat' as MCPDomain, temperatureType, mcpConfig);
             return this.createMCPAdapter(chatMCP, MCPType.CHAT, metadata);
         });
 
         // Register StatsMCP factory
-        this.mcpRegistry.registerMCPFactory(MCPType.STATS, (metadata, config) => {
+        this.mcpRegistry.registerMCPFactory(MCPType.STATS, (metadata: any, config: any) => {
             // StatsMCP expects hot/cold type from mcp.types
-            const mcpConfig = config as MCPConfig;
-            const temperatureType = metadata.tier === MCPTier.WARM ? MCPTypeFromTypes.COLD : MCPTypeFromTypes.HOT;
+            const mcpConfig = config as MCPConfiguration;
+            const temperatureType = metadata.tier === 'warm' ? MCPType.COLD : MCPType.HOT;
             const statsMCP = new StatsMCP('analytics' as MCPDomain, temperatureType, mcpConfig);
             return this.createMCPAdapter(statsMCP, MCPType.STATS, metadata);
         });
 
         // Register LogsMCP factory
-        this.mcpRegistry.registerMCPFactory(MCPType.LOGS, (metadata, config) => {
-            // LogsMCP expects hot/cold type from mcp.types
-            const mcpConfig = config as MCPConfig;
-            const temperatureType = metadata.tier === MCPTier.COLD ? MCPTypeFromTypes.COLD : MCPTypeFromTypes.HOT;
+        this.mcpRegistry.registerMCPFactory(MCPType.LOGS, (metadata: any, config: any) => {
+            // ChatMCP expects hot/cold type from mcp.types
+            const mcpConfig = config as MCPConfiguration;
+            const temperatureType = metadata.tier === 'cold' ? MCPType.COLD : MCPType.HOT;
             const logsMCP = new LogsMCP('analytics' as MCPDomain, temperatureType, mcpConfig);
             return this.createMCPAdapter(logsMCP, MCPType.LOGS, metadata);
         });
@@ -424,7 +424,7 @@ class ApiServer {
             return {
                 ...meta,
                 type: type,
-                tier: MCPTier.WARM,
+                tier: 'warm' as const,
                 created: new Date(meta.createdAt || Date.now()),
                 lastAccessed: new Date(meta.lastAccessed || Date.now()),
                 performance: {
@@ -449,13 +449,22 @@ class ApiServer {
             // Create User MCP (HOT tier for frequent access)
             await this.mcpRegistry.createMCP({
                 name: 'user-mcp',
+                domain: 'user',
                 type: MCPType.USER,
                 tier: MCPTier.HOT,
                 config: {
-                    maxConnections: 100,
+                    maxRecords: 1000000,
+                    maxSize: 100 * 1024 * 1024 * 1024, // 100GB
                     cacheSize: 512, // 512MB cache
+                    connectionPoolSize: 100,
+                    queryTimeout: 30000,
+                    backupFrequency: 24,
+                    compressionEnabled: false,
+                    encryptionEnabled: true,
                     autoIndexing: true,
-                    encryptionEnabled: true
+                    replicationFactor: 2,
+                    consistencyLevel: 'strong' as const,
+                    customProperties: {}
                 },
                 tags: ['user', 'authentication', 'profiles', 'hot']
             });
@@ -463,13 +472,22 @@ class ApiServer {
             // Create Chat MCP (HOT tier for real-time messaging)
             await this.mcpRegistry.createMCP({
                 name: 'chat-mcp',
+                domain: 'chat',
                 type: MCPType.CHAT,
                 tier: MCPTier.HOT,
                 config: {
-                    maxConnections: 200,
+                    maxRecords: 1000000,
+                    maxSize: 50 * 1024 * 1024 * 1024, // 50GB
                     cacheSize: 256,
+                    connectionPoolSize: 200,
+                    queryTimeout: 30000,
+                    backupFrequency: 12,
+                    compressionEnabled: true,
+                    encryptionEnabled: false,
                     autoIndexing: true,
-                    compressionEnabled: true
+                    replicationFactor: 1,
+                    consistencyLevel: 'eventual' as const,
+                    customProperties: {}
                 },
                 tags: ['chat', 'messages', 'realtime', 'hot']
             });
@@ -477,13 +495,22 @@ class ApiServer {
             // Create Stats MCP (WARM tier for analytics)
             await this.mcpRegistry.createMCP({
                 name: 'stats-mcp',
+                domain: 'analytics',
                 type: MCPType.STATS,
                 tier: MCPTier.WARM,
                 config: {
-                    maxConnections: 50,
+                    maxRecords: 5000000,
+                    maxSize: 200 * 1024 * 1024 * 1024, // 200GB
                     cacheSize: 128,
+                    connectionPoolSize: 50,
+                    queryTimeout: 60000,
+                    backupFrequency: 24,
+                    compressionEnabled: true,
+                    encryptionEnabled: false,
                     autoIndexing: true,
-                    compressionEnabled: true
+                    replicationFactor: 1,
+                    consistencyLevel: 'eventual' as const,
+                    customProperties: {}
                 },
                 tags: ['analytics', 'metrics', 'stats', 'warm']
             });
@@ -491,14 +518,22 @@ class ApiServer {
             // Create Logs MCP (COLD tier for archival)
             await this.mcpRegistry.createMCP({
                 name: 'logs-mcp',
+                domain: 'logs',
                 type: MCPType.LOGS,
                 tier: MCPTier.COLD,
                 config: {
-                    maxConnections: 25,
+                    maxRecords: 10000000,
+                    maxSize: 1000 * 1024 * 1024 * 1024, // 1TB
                     cacheSize: 64,
-                    autoIndexing: false,
+                    connectionPoolSize: 25,
+                    queryTimeout: 120000,
+                    backupFrequency: 168, // weekly
                     compressionEnabled: true,
-                    encryptionEnabled: true
+                    encryptionEnabled: true,
+                    autoIndexing: false,
+                    replicationFactor: 1,
+                    consistencyLevel: 'weak' as const,
+                    customProperties: {}
                 },
                 tags: ['logs', 'audit', 'archive', 'cold']
             });

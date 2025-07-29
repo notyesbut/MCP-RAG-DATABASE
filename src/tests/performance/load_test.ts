@@ -6,7 +6,8 @@
 
 import { performance } from 'perf_hooks';
 import { EventEmitter } from 'events';
-import { describe, test, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+// Jest globals are available without imports
+// describe, test, expect, beforeAll, afterAll, beforeEach are provided by Jest
 
 
 

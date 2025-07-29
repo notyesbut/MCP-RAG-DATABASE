@@ -61,13 +61,13 @@ export interface MLInsights {
 
 export class MLIntegrationCoordinator {
   private config: MLIntegrationConfig;
-  private pipeline: MLPipeline = new MLPipeline();
+  private pipeline!: MLPipeline;
   
   // ML Components
-  private patternLearner: PatternLearner;
-  private neuralOptimizer: NeuralQueryOptimizer;
-  private cachePredictor: CachePredictor;
-  private indexOptimizer: IndexOptimizer;
+  private patternLearner!: PatternLearner;
+  private neuralOptimizer!: NeuralQueryOptimizer;
+  private cachePredictor!: CachePredictor;
+  private indexOptimizer!: IndexOptimizer;
   
   // Coordination state
   private coordinationHistory: Map<string, any[]> = new Map();

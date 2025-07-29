@@ -29,7 +29,7 @@ export {
   // Additional types that exist in mcp.types.ts
   AccessPattern,
   AccessPatternType,
-  BaseMCP,
+  // BaseMCP is now exported from mcp-base.types.ts
   ComplianceContext,
   ConstraintDefinition,
   DataClassification,
@@ -50,6 +50,7 @@ export {
   MCPSchema,
   MCPStats,
   MCPStatus,
+  MCPStatusEnum,
   MCPTier,
   MigrationPlan,
   MigrationRecord,
@@ -1180,3 +1181,58 @@ export const TypeUtils = {
     return properties.every(prop => prop in obj && TypeUtils.isDefined((obj as any)[prop]));
   }
 };
+
+// Conversation Types
+export {
+  ConversationContext,
+  ChatMessage,
+  MessageReaction,
+  MessageEdit,
+  MessageDelivery,
+  MessageMetadata,
+  MessageFlags,
+  ConversationMetadata,
+  ConversationSettings,
+  ConversationThread,
+  ConversationTypeGuards
+} from './conversation.types';
+
+// Export MCPTier enum value for runtime usage
+export { MCPTier as MCPTierEnum } from './mcp.types';
+
+// MCP Base Types
+export {
+  BaseMCP,
+  BaseMCPInterface,
+  BaseMCPOptions,
+  MCPEventHandlers,
+  MCPLifecycleEvent,
+  MCPOperationEvent,
+  MCPInternalState,
+  MCPLifecycleState,
+  MCPMigration,
+  MCPMigrationOptions,
+  MCPMigrationProgress,
+  MCPMigrationResult,
+  MCPMigrationValidation,
+  MCPBaseTypeGuards
+} from './mcp-base.types';
+
+// Express Extension Types
+export {
+  ExtendedRequest,
+  ExtendedResponse,
+  RequestContext,
+  CacheOptions,
+  AsyncRequestHandler,
+  AsyncErrorRequestHandler,
+  MiddlewareFactory,
+  ValidatedRouteHandler,
+  ExpressAppConfig,
+  RouteConfig,
+  ErrorHandlerConfig,
+  MiddlewareContext,
+  TypedLocals,
+  ExpressTypeGuards,
+  RouteHandlerTypes
+} from './express.types';

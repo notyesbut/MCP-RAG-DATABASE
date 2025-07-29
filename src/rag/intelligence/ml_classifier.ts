@@ -4,6 +4,7 @@
  */
 
 import { QueryIntent, QueryEntity, QueryContext } from '../../types/query.types';
+import { ConversationContext } from '../query/parser';
 
 /**
  * Training sample for ML model

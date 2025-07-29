@@ -4,8 +4,9 @@
  * Demonstrates: Full TARGET.MD workflow with advanced AI capabilities
  */
 
-import { MCPRegistry, UserMCP, ChatMCP, StatsMCP, LogsMCP } from './index';
-import { MCPConfig } from './types/mcp.types';
+import { UserMCP, ChatMCP, StatsMCP, LogsMCP } from './index';
+import { MCPRegistry } from './mcp/registry/MCPRegistry';
+import { MCPConfiguration } from './types/mcp.types';
 import { apiServer } from './api/server';
 import { RAG1Controller } from './rag/ingest/rag1';
 import { RAG2Controller } from './rag/query/rag2';
@@ -44,20 +45,28 @@ async function demonstrateSpecializedMCPs() {
 
     // 1. Specialized MCP Creation with Intelligence
     console.log('🗂️ Step 3: Creating Intelligent Specialized MCPs...');
-    const userConfig: MCPConfig = {
-      id: 'user-mcp-intelligent',
+    const userConfig: MCPConfiguration = {
       domain: 'user',
       type: 'hot',
       maxRecords: 25000,
-      indexingStrategy: 'smart',
+      maxSize: 1024 * 1024 * 1024,
+      cacheSize: 128,
+      connectionPoolSize: 10,
+      queryTimeout: 5000,
+      backupFrequency: 3600000,
       compressionEnabled: true,
-      cachingStrategy: 'hybrid',
+      encryptionEnabled: false,
+      autoIndexing: true,
       replicationFactor: 3,
-      backupFrequency: 3600000
+      consistencyLevel: 'eventual',
+      customProperties: {
+        indexingStrategy: 'smart',
+        cachingStrategy: 'hybrid'
+      }
     };
 
-    await registry.registerMCP(userConfig);
-    const userMCP = registry.getMCP('user-mcp-intelligent') as UserMCP;
+    await registry.registerMCP({ ...userConfig, id: 'user-mcp-intelligent' });
+    const userMCP = await registry.getMCP('user-mcp-intelligent') as UserMCP;
 
     // Create sample users
     const userId1 = await userMCP.storeUser({
@@ -65,6 +74,7 @@ async function demonstrateSpecializedMCPs() {
       email: 'john.doe@example.com',
       profile: {
         name: 'John Doe',
+        preferences: {}
       },
       metadata: {
         createdAt: Date.now(),
@@ -79,6 +89,7 @@ async function demonstrateSpecializedMCPs() {
       email: 'jane.smith@example.com',
       profile: {
         name: 'Jane Smith',
+        preferences: {}
       },
       metadata: {
         createdAt: Date.now(),
@@ -106,25 +117,34 @@ async function demonstrateSpecializedMCPs() {
 
     // 2. ChatMCP Demo
     console.log('\n💬 === ChatMCP Demonstration ===');
-    const chatConfig: MCPConfig = {
-      id: 'chat-mcp-demo',
+    const chatConfig: MCPConfiguration = {
       domain: 'chat',
       type: 'hot',
       maxRecords: 100000,
-      indexingStrategy: 'smart',
+      maxSize: 2 * 1024 * 1024 * 1024,
+      cacheSize: 256,
+      connectionPoolSize: 15,
+      queryTimeout: 3000,
+      backupFrequency: 1800000,
       compressionEnabled: true,
-      cachingStrategy: 'hybrid',
+      encryptionEnabled: false,
+      autoIndexing: true,
       replicationFactor: 3,
-      backupFrequency: 1800000
+      consistencyLevel: 'eventual',
+      customProperties: {
+        indexingStrategy: 'smart',
+        cachingStrategy: 'hybrid'
+      }
     };
 
-    await registry.registerMCP(chatConfig);
-    const chatMCP = registry.getMCP('chat-mcp-demo') as ChatMCP;
+    await registry.registerMCP({ ...chatConfig, id: 'chat-mcp-demo' });
+    const chatMCP = await registry.getMCP('chat-mcp-demo') as ChatMCP;
 
     // Create sample messages
     const msgId1 = await chatMCP.store({
       id: 'msg-001',
       domain: 'chat',
+      type: 'message',
       timestamp: Date.now(),
       data: {
         conversationId: 'conv-123',
@@ -140,6 +160,7 @@ async function demonstrateSpecializedMCPs() {
     const msgId2 = await chatMCP.store({
       id: 'msg-002',
       domain: 'chat',
+      type: 'message',
       timestamp: Date.now(),
       data: {
         conversationId: 'conv-123',
@@ -166,25 +187,34 @@ async function demonstrateSpecializedMCPs() {
 
     // 3. StatsMCP Demo
     console.log('\n📊 === StatsMCP Demonstration ===');
-    const statsConfig: MCPConfig = {
-      id: 'stats-mcp-demo',
+    const statsConfig: MCPConfiguration = {
       domain: 'stats',
       type: 'hot',
       maxRecords: 1000000,
-      indexingStrategy: 'eager',
+      maxSize: 5 * 1024 * 1024 * 1024,
+      cacheSize: 512,
+      connectionPoolSize: 20,
+      queryTimeout: 10000,
+      backupFrequency: 7200000,
       compressionEnabled: true,
-      cachingStrategy: 'hybrid',
+      encryptionEnabled: false,
+      autoIndexing: true,
       replicationFactor: 2,
-      backupFrequency: 7200000
+      consistencyLevel: 'eventual',
+      customProperties: {
+        indexingStrategy: 'eager',
+        cachingStrategy: 'hybrid'
+      }
     };
 
-    await registry.registerMCP(statsConfig);
-    const statsMCP = registry.getMCP('stats-mcp-demo') as StatsMCP;
+    await registry.registerMCP({ ...statsConfig, id: 'stats-mcp-demo' });
+    const statsMCP = await registry.getMCP('stats-mcp-demo') as StatsMCP;
 
     // Create sample metrics
     const statId1 = await statsMCP.store({
       id: 'stat-001',
       domain: 'stats',
+      type: 'metric',
       timestamp: Date.now(),
       data: {
         metricName: 'user_login',
@@ -214,6 +244,7 @@ async function demonstrateSpecializedMCPs() {
     const statId2 = await statsMCP.store({
       id: 'stat-002',
       domain: 'stats',
+      type: 'metric',
       timestamp: Date.now(),
       data: {
         metricName: 'message_sent',
@@ -255,25 +286,34 @@ async function demonstrateSpecializedMCPs() {
 
     // 4. LogsMCP Demo
     console.log('\n📋 === LogsMCP Demonstration ===');
-    const logsConfig: MCPConfig = {
-      id: 'logs-mcp-demo',
+    const logsConfig: MCPConfiguration = {
       domain: 'logs',
       type: 'cold',
       maxRecords: 10000000,
-      indexingStrategy: 'smart',
+      maxSize: 10 * 1024 * 1024 * 1024,
+      cacheSize: 64,
+      connectionPoolSize: 5,
+      queryTimeout: 15000,
+      backupFrequency: 21600000,
       compressionEnabled: true,
-      cachingStrategy: 'disk',
+      encryptionEnabled: false,
+      autoIndexing: true,
       replicationFactor: 1,
-      backupFrequency: 21600000
+      consistencyLevel: 'eventual',
+      customProperties: {
+        indexingStrategy: 'smart',
+        cachingStrategy: 'disk'
+      }
     };
 
-    await registry.registerMCP(logsConfig);
-    const logsMCP = registry.getMCP('logs-mcp-demo') as LogsMCP;
+    await registry.registerMCP({ ...logsConfig, id: 'logs-mcp-demo' });
+    const logsMCP = await registry.getMCP('logs-mcp-demo') as LogsMCP;
 
     // Create sample logs
     const logId1 = await logsMCP.store({
       id: 'log-001',
       domain: 'logs',
+      type: 'log',
       timestamp: Date.now(),
       data: {
         level: 'info',
@@ -304,6 +344,7 @@ async function demonstrateSpecializedMCPs() {
     const logId2 = await logsMCP.store({
       id: 'log-002',
       domain: 'logs',
+      type: 'log',
       timestamp: Date.now(),
       data: {
         level: 'error',
@@ -353,14 +394,14 @@ async function demonstrateSpecializedMCPs() {
     const registryStats = registry.getSystemMetrics();
     console.log(`📈 Registry stats:`, registryStats);
 
-    const allMCPs = registry.getAllMCPs();
+    const allMCPs = await registry.getAllMCPs();
     console.log(`🗂️ Total MCPs: ${allMCPs.size}`);
 
-    const hotMCPs = registry.getMCPsByType('hot');
-    console.log(`🔥 HOT MCPs: ${hotMCPs.length}`);
+    const hotMCPs = await registry.getMCPsByType('hot' as any);
+    console.log(`🔥 HOT MCPs: ${hotMCPs.size}`);
 
-    const coldMCPs = registry.getMCPsByType('cold');
-    console.log(`❄️ COLD MCPs: ${coldMCPs.length}`);
+    const coldMCPs = await registry.getMCPsByType('cold' as any);
+    console.log(`❄️ COLD MCPs: ${coldMCPs.size}`);
 
     console.log('\n✨ Demo completed successfully!');
     console.log('\n🎯 Key Features Demonstrated:');

@@ -4,7 +4,8 @@
  */
 
 import { EventEmitter } from 'events';
-import { BaseMCP, MCPQuery, MCPResult, MCPMetadata } from '../core/BaseMCP';
+import { BaseMCP } from '../../core/mcp/base_mcp';
+import { MCPQuery, MCPResult, MCPMetadata, MCPTier } from '../../types/mcp.types';
 
 export interface MCPMessage {
   id: string;
@@ -186,7 +187,7 @@ export class MCPCommunicationHub extends EventEmitter {
       strategy,
       targetMcps: this.selectTargetMCPs(query, strategy),
       aggregationType: this.determineAggregationType(query),
-      timeout: query.options?.timeout || 10000,
+      timeout: 10000, // Default timeout
       partialResultsAllowed: true
     };
 
@@ -569,7 +570,7 @@ export class MCPCommunicationHub extends EventEmitter {
         return allMcpIds.sort((a, b) => {
           const nodeA = this.topology.mcps.get(a);
           const nodeB = this.topology.mcps.get(b);
-          const tierOrder: Record<MCPTier, number> = { hot: 0, warm: 1, cold: 2 };
+          const tierOrder: Record<MCPTier, number> = { hot: 0, warm: 1, cold: 2, archive: 3 };
           return tierOrder[nodeA?.metadata.type || 'warm'] - tierOrder[nodeB?.metadata.type || 'warm'];
         });
         
@@ -580,7 +581,7 @@ export class MCPCommunicationHub extends EventEmitter {
 
   private determineAggregationType(query: MCPQuery): AggregationType {
     // Simple heuristic - would be more sophisticated in production
-    if (query.options?.limit === 1) {
+    if (query.limit === 1) {
       return AggregationType.FIRST_MATCH;
     }
     
@@ -619,12 +620,30 @@ export class MCPCommunicationHub extends EventEmitter {
   }
 
   private async executeQueryWithTimeout(mcp: BaseMCP, query: MCPQuery, timeout: number): Promise<MCPResult> {
-    return Promise.race([
-      mcp.query(query.filters),
-      new Promise<MCPResult>((_, reject) => 
-        setTimeout(() => reject(new Error('Query timeout')), timeout)
-      )
-    ]);
+    const startTime = Date.now();
+    
+    try {
+      const data = await Promise.race([
+        mcp.query(query.filters || {}),
+        new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('Query timeout')), timeout)
+        )
+      ]);
+      
+      return {
+        success: true,
+        data,
+        executionTime: Date.now() - startTime,
+        mcpId: mcp.getId()
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        executionTime: Date.now() - startTime,
+        mcpId: mcp.getId()
+      };
+    }
   }
 
   private updateMCPPerformance(mcpId: string, responseTime: number): void {

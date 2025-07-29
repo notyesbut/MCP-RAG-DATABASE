@@ -23,12 +23,25 @@ import {
   MCPType,
   MCPDomain, 
   MCPFactory,
-  MCPInstance,
   MCPHealth,
   MCPStats,
   LogEntry,
   MCPRegistryConfig
 } from '../../types/mcp.types';
+
+// Local MCPInstance interface to avoid type conflicts
+interface MCPInstance {
+  id: string;
+  metadata: MCPMetadata;
+  health: MCPHealth;
+  stats: MCPStats;
+  mcp?: BaseMCP; // The actual implementation
+  emit?: (event: string, ...args: any[]) => boolean;
+  averageQueryTime?: number;
+  errorCount?: number;
+  accessCount?: number;
+  lastAccessed?: number;
+}
 
 interface RegistryConfiguration {
   hotThreshold: number;          // Access frequency threshold for HOT classification
@@ -103,6 +116,7 @@ export class MCPRegistry extends EventEmitter {
           errorCount: 0,
           responseTime: 0,
           successRate: 100,
+          uptime: 0,
           details: {
             database: true,
             network: true,
@@ -127,24 +141,7 @@ export class MCPRegistry extends EventEmitter {
             bytesOut: 0
           }
         },
-        mcp,
-        // Implement BaseMCP interface methods  
-        get type() { return mcp.getMetadata().type; },
-        domain: mcp.domain,
-        initialize: () => mcp.initialize(),
-        store: (r) => mcp.store(r),
-        retrieve: (id) => mcp.retrieve(id),
-        query: (q) => mcp.query(q),
-        create: (r) => mcp.create(r),
-        update: (r) => mcp.update(r),
-        delete: (id) => mcp.delete(id),
-        getHealth: () => mcp.getHealth(),
-        getMetrics: () => mcp.getMetrics(),
-        getLogs: async (options) => mcp.getLogs(options),
-        getConfiguration: () => mcp.getConfiguration(),
-        getMetadata: () => mcp.getMetadata(),
-        getCapabilities: () => mcp.getCapabilities(),
-        shutdown: () => mcp.shutdown(),
+        mcp: mcp,
         // Additional MCPInstance properties
         averageQueryTime: 0,
         errorCount: 0,
@@ -539,11 +536,13 @@ export class MCPRegistry extends EventEmitter {
       };
 
       // Create new configuration with target type
+      const baseConfig = instance.mcp ? instance.mcp.getConfiguration() : { maxRecords: 1000000 };
       const newConfig: MCPRegistryConfig = {
-        ...(instance.mcp ? instance.mcp.getConfiguration() : {}),
+        ...baseConfig,
         id: `${mcpId}-${targetType}`,
         domain: instance.metadata.domain,
-        type: targetType
+        type: targetType,
+        maxRecords: baseConfig.maxRecords || 1000000
       };
 
       // Register new MCP instance
@@ -596,7 +595,7 @@ export class MCPRegistry extends EventEmitter {
       });
 
       // Get all records from source MCP
-      const allRecords = await sourceInstance.mcp.prepareForMigration();
+      const allRecords = sourceInstance.mcp?.prepareForMigration ? await sourceInstance.mcp.prepareForMigration() : [];
       totalRecords = allRecords.length;
 
       // Copy records in batches for efficiency and memory management
@@ -1043,11 +1042,13 @@ export class MCPRegistry extends EventEmitter {
     if (!instance) return;
 
     // Create additional instance for load distribution
+    const baseConfig = instance.mcp?.getConfiguration() || { maxRecords: 1000000 };
     const newConfig: MCPRegistryConfig = {
-      ...instance.mcp?.getConfiguration() || {},
+      ...baseConfig,
       id: `${mcpId}-loadbalance-${Date.now()}`,
       domain: instance.metadata.domain,
-      type: instance.metadata.type
+      type: instance.metadata.type,
+      maxRecords: baseConfig.maxRecords || 1000000
     };
 
     try {

@@ -12,12 +12,22 @@ export type MCPTypeString = 'hot' | 'cold';
 
 /**
  * MCP Type enum for backward compatibility
+ * Merged from multiple definitions to include all types
  */
 export enum MCPType {
+  // Data types
+  VECTOR = 'vector',
+  GRAPH = 'graph',
+  DOCUMENT = 'document',
+  TEMPORAL = 'temporal',
+  SPATIAL = 'spatial',
+  HYBRID = 'hybrid',
+  // Domain types
   USER = 'user',
   CHAT = 'chat',
   STATS = 'stats',
   LOGS = 'logs',
+  // Temperature types
   HOT = 'hot',
   COLD = 'cold'
 }
@@ -35,12 +45,13 @@ export type MCPPerformanceTier = 'realtime' | 'standard' | 'batch' | 'archive';
 
 /**
  * MCP Tier enum for compatibility
+ * Temperature-based data classification
  */
 export enum MCPTier {
-  HOT = 'hot',
-  COLD = 'cold',
-  WARM = 'warm',
-  ARCHIVE = 'archive'
+  HOT = 'hot',      // Frequently accessed, high performance
+  WARM = 'warm',    // Moderate access, balanced performance
+  COLD = 'cold',    // Archive, optimized for storage
+  ARCHIVE = 'archive' // Long-term storage
 }
 
 /**
@@ -69,7 +80,69 @@ export type MCPHealthStatus = 'healthy' | 'degraded' | 'unhealthy' | 'unreachabl
 /**
  * MCP operational status
  */
-export type MCPStatus = 'active' | 'inactive' | 'initializing' | 'error' | 'maintenance';
+export type MCPStatus = 'active' | 'inactive' | 'initializing' | 'error' | 'maintenance' | 'migrating';
+
+/**
+ * MCP Status enum for backward compatibility
+ */
+export enum MCPStatusEnum {
+  ACTIVE = 'active',
+  INACTIVE = 'inactive',
+  INITIALIZING = 'initializing',
+  ERROR = 'error',
+  MAINTENANCE = 'maintenance',
+  MIGRATING = 'migrating'
+}
+
+/**
+ * Active query tracking interface
+ */
+export interface ActiveQuery {
+  /** Query unique identifier */
+  id?: string;
+  
+  /** Query unique identifier (alias) */
+  queryId?: string;
+  
+  /** Query string */
+  query?: string;
+  
+  /** Query start time */
+  startTime: number;
+  
+  /** Estimated completion time */
+  estimatedTime: number;
+  
+  /** Estimated cost */
+  estimatedCost: number;
+  
+  /** MCP load during query execution */
+  mcpLoad: number;
+  
+  /** Query type */
+  type?: string;
+  
+  /** Query status */
+  status?: 'pending' | 'running' | 'completed' | 'failed';
+  
+  /** Target MCP ID */
+  mcpId?: string;
+  
+  /** Query criteria */
+  criteria?: Record<string, any>;
+  
+  /** Progress percentage (0-100) */
+  progress?: number;
+  
+  /** Execution time */
+  executionTime?: number;
+  
+  /** MCPs used */
+  mcpsUsed?: string[];
+  
+  /** Result size */
+  resultSize?: number;
+}
 
 /**
  * Data access patterns for optimization
@@ -94,6 +167,25 @@ export interface AccessPattern {
   
   /** Access type */
   accessType: string;
+}
+
+/**
+ * MCP Performance metrics interface
+ */
+export interface MCPPerformance {
+  avgQueryTime: number;
+  avgReadLatency: number;
+  avgWriteLatency: number;
+  throughput: number;
+  cacheHitRatio: number;
+  cacheHitRate: number;  // Alias for compatibility
+  errorRate: number;
+  cpuUsage: number;
+  memoryUsage: number;
+  storageUsed: number;
+  totalRecords?: number;
+  lastUpdated: Date;
+  averageResponseTime?: number;
 }
 
 /**
@@ -210,7 +302,32 @@ export interface DataRecord {
   domain: MCPDomain;
   
   /** Record type */
-  type: string;
+  type: MCPType | string;
+  
+  /** Data size in bytes */
+  size?: number;
+  
+  /** Routing information for intelligent MCP selection */
+  routing?: {
+    mcpId?: string;
+    confidence?: number;
+    reason?: string;
+    distributionStrategy?: 'replicated' | 'sharded' | 'single';
+    preferredMCPs?: string[];
+    excludeMCPs?: string[];
+    targetMCPs?: string[];
+    strategy?: string;
+    priority?: number;
+  };
+  
+  /** Encryption status for security compliance */
+  encrypted?: boolean;
+  
+  /** Access control tags for permission management */
+  accessControlTags?: string[];
+  
+  /** Compliance flags for regulatory requirements */
+  complianceFlags?: string[];
   
   /** Creation timestamp */
   timestamp: number;
@@ -224,6 +341,7 @@ export interface DataRecord {
     options?: any;
     batchId?: string;
     batchIndex?: number;
+    accessPattern?: AccessPattern;
     [key: string]: any;
   };
 }
@@ -235,8 +353,32 @@ export interface RoutingDecision {
   /** Target MCP instances for storage */
   targetMCPs: string[];
   
+  /** Primary MCP ID */
+  mcpId?: string;
+  
   /** Routing strategy used */
   strategy: 'primary' | 'replicated' | 'sharded' | 'cached' | 'archived';
+  
+  /** Score for routing decision */
+  score?: number;
+  
+  /** Reasoning for routing decision */
+  reasons?: string[];
+  
+  /** Estimated latency for the routing */
+  estimatedLatency?: number;
+  
+  /** Reliability score */
+  reliability?: number;
+  
+  /** Cost factor */
+  cost?: number;
+  
+  /** Priority level */
+  priority?: number;
+  
+  /** Alternative routing options */
+  alternativeRoutes?: string[][];
   
   /** Execution plan for storage */
   executionPlan: RoutingExecutionStep[];
@@ -245,7 +387,7 @@ export interface RoutingDecision {
   confidence: number;
   
   /** Reasoning for the routing decision */
-  reasoning: string;
+  reasoning?: string;
 }
 
 /**
@@ -287,6 +429,9 @@ export interface MCPMetadata {
   /** Performance tier for resource allocation */
   performanceTier: MCPPerformanceTier;
   
+  /** Temperature tier (hot/warm/cold) */
+  tier?: MCPTier;
+  
   /** Number of times this MCP has been accessed */
   accessFrequency: number;
   
@@ -295,6 +440,24 @@ export interface MCPMetadata {
   
   /** Current number of records stored */
   recordCount: number;
+  
+  /** Name for the MCP instance */
+  name: string;
+  
+  /** Creation timestamp */
+  created: number;
+  
+  /** Access count for tier optimization */
+  accessCount: number;
+  
+  /** Data size in bytes */
+  dataSize: number;
+  
+  /** Tags for categorization */
+  tags: string[];
+  
+  /** Current status */
+  status: MCPStatus;
   
   /** Average record size in bytes */
   averageRecordSize: number;
@@ -321,7 +484,10 @@ export interface MCPMetadata {
   configuration: MCPConfiguration;
   
   /** Performance metrics */
-  metrics: MCPMetrics;
+  metrics: MCPMetrics & {
+    avgQueryTime?: number;
+    errorRate?: number;
+  };
   
   /** Data schema information (dynamic) */
   schema?: MCPSchema;
@@ -331,14 +497,9 @@ export interface MCPMetadata {
   
   /** Related MCP instances for cross-references */
   relatedMCPs: string[];
-  
-  /** Custom tags for organization and filtering */
-  tags: string[];
 }
 
-/**
- * Configuration settings for MCP instances
- */
+
 export interface MCPConfiguration {
   /** MCP domain */
   domain?: MCPDomain;
@@ -370,6 +531,19 @@ export interface MCPConfiguration {
   /** Encryption enabled */
   encryptionEnabled: boolean;
   
+  /** Auto migration configuration */
+  autoMigration?: {
+    enabled: boolean;
+    thresholds: {
+      recordCount?: number;
+      storageSize?: number;
+      performanceMetric?: number;
+    };
+  };
+  
+  /** Index strategies configuration */
+  indexStrategies?: IndexStrategy[];
+  
   /** Auto-indexing enabled */
   autoIndexing: boolean;
   
@@ -389,6 +563,18 @@ export interface MCPConfiguration {
 export interface MCPMetrics {
   /** Average query response time in milliseconds */
   averageResponseTime: number;
+  
+  /** Average read latency in milliseconds */
+  avgReadLatency: number;
+  
+  /** Average write latency in milliseconds */
+  avgWriteLatency: number;
+  
+  /** Average throughput operations per second */
+  avgThroughput: number;
+  
+  /** Operations throughput per second */
+  throughput: number;
   
   /** Queries per second */
   queryThroughput: number;
@@ -412,6 +598,9 @@ export interface MCPMetrics {
   
   /** Cache hit ratio */
   cacheHitRatio: number;
+  
+  /** Cache hit rate (alias for compatibility) */
+  cacheHitRate: number;
   
   /** Error rate percentage */
   errorRate: number;
@@ -584,6 +773,9 @@ export interface MigrationRecord {
 export interface MCPCapabilities {
   /** Supported query types */
   queryTypes: ('select' | 'insert' | 'update' | 'delete' | 'aggregate' | 'search')[];
+  
+  /** Supported query types (alternate name for compatibility) */
+  supportedQueryTypes?: string[];
   
   /** Supported data types */
   dataTypes: string[];
@@ -1000,6 +1192,9 @@ export interface MCPHealth {
   /** Success rate percentage */
   successRate: number;
   
+  /** Uptime in seconds */
+  uptime: number;
+  
   /** Health details */
   details: {
     database: boolean;
@@ -1010,9 +1205,6 @@ export interface MCPHealth {
   
   /** CPU usage percentage */
   cpuUsage?: number;
-  
-  /** Uptime in milliseconds */
-  uptime: number;
 }
 
 /**
@@ -1109,11 +1301,45 @@ export interface ExtendedMCPConfiguration extends MCPConfiguration {
  * Extended MCPMetadata with additional properties
  */
 export interface ExtendedMCPMetadata extends MCPMetadata {
-  /** MCP status */
-  status?: MCPStatus;
-  
   /** Performance metrics (alias) */
   performanceMetrics?: MCPMetrics;
+}
+
+// Commented out duplicate MCPQuery interface - using the one at line 801
+// export interface MCPQuery {
+//   id: string;
+//   type: string;
+//   query: any;
+//   filters?: Record<string, any>;
+//   options?: MCPQueryOptions;
+//   timestamp: Date;
+// }
+
+/**
+ * MCP Query Options
+ */
+export interface MCPQueryOptions {
+  limit?: number;
+  offset?: number;
+  similarity?: number;
+  includeMetadata?: boolean;
+  timeout?: number;
+  priority?: 'low' | 'medium' | 'high' | 'critical';
+}
+
+/**
+ * MCP Query Result
+ */
+export interface MCPResult {
+  success: boolean;
+  data?: any[];
+  metadata?: any;
+  error?: string;
+  executionTime: number;
+  fromCache?: boolean;
+  mcpId?: string;
+  count?: number;
+  source?: string;
 }
 
 /**
@@ -1132,6 +1358,16 @@ export interface BaseMCP {
   delete(id: string): Promise<boolean>;
   create(record: DataRecord): Promise<boolean>;
   
+  // Additional methods
+  getId?(): string;
+  getStatus?(): MCPStatus;
+  setStatus?(status: MCPStatus): void;
+  
+  // Index management
+  createIndex?(indexName: string, fields: string[], options?: any): Promise<boolean>;
+  clearCache?(): Promise<void>;
+  updateMetadata?(metadata: Partial<MCPMetadata>): Promise<boolean>;
+  
   // Health and monitoring
   getHealth(): Promise<{
     status: 'healthy' | 'degraded' | 'unhealthy';
@@ -1145,6 +1381,11 @@ export interface BaseMCP {
     queryCount: number;
     lastAccess: string;
     avgQueryTime: number;
+    avgReadLatency: number;
+    avgWriteLatency: number;
+    throughput: number;
+    cacheHitRatio: number;
+    cacheHitRate: number;
     errorRate: number;
     storageUsed: number;
     indexCount: number;

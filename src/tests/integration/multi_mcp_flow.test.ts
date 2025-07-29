@@ -4,7 +4,8 @@
  * Enterprise MCP System - Quality Assurance Lead Implementation
  */
 
-import { describe, test, expect, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
+// Jest globals are available without imports
+// describe, test, expect, beforeEach, afterEach, beforeAll, afterAll are provided by Jest
 import { MCPOrchestrator } from '../../mcp/MCPOrchestrator';
 import { MCPRegistry } from '../../mcp/registry/MCPRegistry';
 import { MCPCommunicationHub } from '../../mcp/communication/MCPCommunicationHub';

@@ -11,7 +11,7 @@ import { asyncAuthHandler } from '../utils/asyncHandler';
 
 import { 
   ApiResponse, 
-  MCPStatusInfo, 
+  MCPStatus, 
   SystemMetrics,
   AuthenticatedRequest
 } from '../../types/api.types';
@@ -21,8 +21,7 @@ import { config } from '../../api/config/config';
 import { MCPRegistry } from '../../mcp/registry/MCPRegistry';
 import { RAG1Controller } from '../../rag/ingest/rag1';
 import { RAG2Controller } from '../../rag/query/rag2';
-import { BaseMCP } from '../../core/mcp/base_mcp';
-import { MCPType, MCPTier, IndexStrategy } from '../../types/mcp.types';
+import { MCPType, MCPTier, BaseMCP } from '../../mcp/core/BaseMCP';
 
 // Helper to generate a unique request ID
 const getRequestId = (req: Request): string => req.headers['x-request-id'] as string || uuidv4();
@@ -52,7 +51,7 @@ const mcpConfigSchema = z.object({
     maxRecords: z.number().min(1),
     autoMigration: z.boolean(),
     replicationFactor: z.number().min(1).max(5),
-    indexStrategies: z.array(z.enum(['btree', 'hash', 'fulltext', 'geospatial', 'temporal', 'graph', 'vector', 'composite'])).nonempty(),
+    indexStrategies: z.array(z.string()).nonempty(),
   }),
   connectionString: z.string().optional(),
   priority: z.number().min(1).max(10).default(5),
@@ -61,7 +60,7 @@ const mcpConfigSchema = z.object({
 type McpConfigPayload = z.infer<typeof mcpConfigSchema>;
 
 // Mock data is defined outside handlers for efficiency
-const MOCK_MCPS: MCPStatusInfo[] = [
+const MOCK_MCPS: MCPStatus[] = [
   {
     id: 'hot-mcp-001', name: 'Primary Hot Storage', type: 'hot', status: 'healthy',
     metrics: { recordCount: 150000, queryCount: 25000, lastAccess: new Date(Date.now() - 1000).toISOString(), avgResponseTime: 45, errorRate: 0.001, storageUsed: 2.5 * 1024 * 1024 * 1024, indexCount: 12 },
@@ -130,7 +129,7 @@ export function createAdminRoutes(
     try {
       const mcpMap = await mcpRegistry.getAllMCPs();
       const mcpList = Array.from(mcpMap.values());
-      let mcpStatuses: MCPStatusInfo[] = [];
+      let mcpStatuses: MCPStatus[] = [];
 
       if (mcpList.length > 0) {
         mcpStatuses = await Promise.all(
@@ -140,7 +139,7 @@ export function createAdminRoutes(
             return {
               id: mcp.id,
               name: mcp.name,
-              type: mcp.tier === MCPTier.HOT || mcp.tier === MCPTier.WARM ? 'hot' : 'cold',
+              type: mcp.tier as 'hot' | 'cold',
               status: health.status,
               metrics: {
                 recordCount: metrics.totalRecords,
@@ -153,12 +152,7 @@ export function createAdminRoutes(
               },
               configuration: {
                 maxRecords: mcp.getConfiguration().maxRecords || 1000000,
-                autoMigration: (() => {
-                  const config = mcp.getConfiguration().autoMigration;
-                  if (typeof config === 'boolean') return config;
-                  if (typeof config === 'object' && config !== null && 'enabled' in config) return config.enabled;
-                  return false;
-                })(),
+                autoMigration: mcp.getConfiguration().autoMigration || true,
                 replicationFactor: mcp.getConfiguration().replicationFactor || 1,
                 indexStrategies: mcp.getConfiguration().indexStrategies || ['btree', 'hash']
               },
@@ -174,7 +168,7 @@ export function createAdminRoutes(
 
       logger.info('MCP list requested', { requestId, userId: req.user?.id, statusFilter, typeFilter, resultCount: data.length });
 
-      const response: ApiResponse<MCPStatusInfo[]> = {
+      const response: ApiResponse<MCPStatus[]> = {
         success: true,
         data,
         message: `Found ${data.length} MCPs`,
@@ -246,7 +240,7 @@ export function createAdminRoutes(
     } catch (error) {
       handleError(res, error, 'Failed to retrieve MCP details', 500, requestId);
     }
-  }));
+  });
 
   /**
    * @swagger
@@ -266,7 +260,7 @@ export function createAdminRoutes(
    *       400: { description: "Invalid configuration provided" }
    *       500: { description: "Failed to register MCP" }
    */
-  router.post("/mcps", asyncAuthHandler(async (req: AuthenticatedRequest, res: Response) => {
+  router.post('/mcps', async (req: AuthenticatedRequest, res: Response) => {
     const requestId = getRequestId(req);
 
     try {
@@ -274,27 +268,9 @@ export function createAdminRoutes(
 
       const newMCPId = await mcpRegistry.createMCP({
         name: mcpConfig.name,
-        domain: mcpConfig.type === 'hot' ? 'user' : 'logs',
         type: mcpConfig.type === 'hot' ? MCPType.USER : MCPType.LOGS,
         tier: mcpConfig.type === 'hot' ? MCPTier.HOT : MCPTier.COLD,
-        config: {
-          maxRecords: mcpConfig.configuration.maxRecords,
-          maxSize: 1000000000, // 1GB default
-          cacheSize: 256, // 256MB default
-          connectionPoolSize: 50,
-          queryTimeout: 30000,
-          backupFrequency: 24,
-          compressionEnabled: false,
-          encryptionEnabled: false,
-          autoIndexing: true,
-          replicationFactor: mcpConfig.configuration.replicationFactor,
-          consistencyLevel: 'strong' as const,
-          customProperties: {},
-          autoMigration: typeof mcpConfig.configuration.autoMigration === 'boolean' 
-            ? { enabled: mcpConfig.configuration.autoMigration, thresholds: {} }
-            : mcpConfig.configuration.autoMigration,
-          indexStrategies: mcpConfig.configuration.indexStrategies as IndexStrategy[]
-        },
+        config: mcpConfig.configuration,
         tags: [mcpConfig.type, 'api-created'],
         initialData: [],
       });
@@ -316,7 +292,7 @@ export function createAdminRoutes(
       }
       handleError(res, error, 'Failed to register MCP', 500, requestId);
     }
-  }));
+  });
 
   /**
    * @swagger
@@ -342,7 +318,7 @@ export function createAdminRoutes(
    *       400: { description: "Invalid maintenance operation" }
    *       500: { description: "Failed to start maintenance" }
    */
-  router.post("/mcps/:id/maintenance", asyncAuthHandler(async (req: AuthenticatedRequest, res: Response) => {
+  router.post('/mcps/:id/maintenance', async (req: AuthenticatedRequest, res: Response) => {
     const requestId = getRequestId(req);
     const { id } = req.params;
     const { operation, options } = req.body;
@@ -369,7 +345,7 @@ export function createAdminRoutes(
     } catch (error) {
       handleError(res, error, 'Failed to start maintenance operation', 500, requestId);
     }
-  }));
+  });
 
   /**
    * @swagger
@@ -387,7 +363,7 @@ export function createAdminRoutes(
    *       200: { description: "System metrics retrieved" }
    *       500: { description: "Failed to retrieve metrics" }
    */
-  router.get("/metrics", asyncAuthHandler(async (req: AuthenticatedRequest, res: Response) => {
+  router.get('/metrics', async (req: AuthenticatedRequest, res: Response) => {
     const requestId = getRequestId(req);
     const timeRange = req.query.timeRange as string || '24h';
 
@@ -433,7 +409,7 @@ export function createAdminRoutes(
     } catch (error) {
       handleError(res, error, 'Failed to retrieve system metrics', 500, requestId);
     }
-  }));
+  });
 
   /**
    * @swagger
@@ -454,7 +430,7 @@ export function createAdminRoutes(
    *       200: { description: "System logs retrieved" }
    *       500: { description: "Failed to retrieve logs" }
    */
-  router.get("/logs", asyncAuthHandler(async (req: AuthenticatedRequest, res: Response) => {
+  router.get('/logs', async (req: AuthenticatedRequest, res: Response) => {
     const requestId = getRequestId(req);
     const level = req.query.level as string | undefined;
     const limit = Math.min(1000, parseInt(req.query.limit as string, 10) || 100);
@@ -483,7 +459,7 @@ export function createAdminRoutes(
     } catch (error) {
       handleError(res, error, 'Failed to retrieve system logs', 500, requestId);
     }
-  }));
+  });
 
   /**
    * @swagger
@@ -506,7 +482,7 @@ export function createAdminRoutes(
    *       202: { description: "Backup process started" }
    *       500: { description: "Failed to start backup" }
    */
-  router.post("/system/backup", asyncAuthHandler(async (req: AuthenticatedRequest, res: Response) => {
+  router.post('/system/backup', (req: AuthenticatedRequest, res: Response) => {
     const requestId = getRequestId(req);
     const { type = 'full', compression = true } = req.body;
 
@@ -534,7 +510,7 @@ export function createAdminRoutes(
     } catch (error) {
       handleError(res, error, 'Failed to start system backup', 500, requestId);
     }
-  }));
+  });
 
   return router;
 }

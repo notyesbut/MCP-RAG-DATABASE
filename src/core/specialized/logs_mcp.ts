@@ -61,6 +61,16 @@ export class LogsMCP extends BaseMCP {
   private tagIndex: Map<string, Set<string>> = new Map(); // tag -> recordIds
   private errorIndex: Map<string, Set<string>> = new Map(); // errorType -> recordIds
   private retentionQueue: Map<string, Set<string>> = new Map(); // date -> recordIds to expire
+  private lastIndexCreationResult?: {
+    success: boolean;
+    indexName: string;
+    fieldsIndexed: string[];
+    performance: {
+      estimatedImprovement: number;
+      querySpeedup: string;
+      diskUsage: number;
+    };
+  };
 
   constructor(domain: MCPDomain, type: MCPType, config: Partial<MCPConfig> = {}) {
     super(domain, type, config);
@@ -88,7 +98,7 @@ export class LogsMCP extends BaseMCP {
 
   protected override optimizeForDomain() {}
 
-  override validateRecord(record: any): boolean {
+  validateRecord(record: any): boolean {
     if (!record || typeof record !== 'object') return false;
     
     // Required fields validation
@@ -543,30 +553,22 @@ export class LogsMCP extends BaseMCP {
     return this.store(record);
   }
 
-  async delete(id: string, options?: any): Promise<any> {
+  override async delete(id: string, options?: any): Promise<any> {
     return super.delete(id);
   }
 
   /**
    * Create production-ready indexes for high-volume log queries
    */
-  async createIndex(definition: {
-    name: string;
-    fields: string[];
-    unique?: boolean;
-    sparse?: boolean;
-    background?: boolean;
-    sharded?: boolean;
-  }): Promise<{
-    success: boolean;
-    indexName: string;
-    fieldsIndexed: string[];
-    performance: {
-      estimatedImprovement: number;
-      querySpeedup: string;
-      diskUsage: number;
+  override async createIndex(indexName: string, fields: string[], options: any = {}): Promise<boolean> {
+    const definition = {
+      name: indexName,
+      fields,
+      unique: options.unique || false,
+      sparse: options.sparse || false,
+      background: options.background || false,
+      sharded: options.sharded || false
     };
-  }> {
     try {
       if (!definition.name || !definition.fields || definition.fields.length === 0) {
         throw new Error('Invalid index definition: name and fields are required');
@@ -574,7 +576,8 @@ export class LogsMCP extends BaseMCP {
 
       const existingIndex = this.indices.get(definition.name);
       if (existingIndex) {
-        return {
+        // Index already exists - store details in class property if needed
+        this.lastIndexCreationResult = {
           success: true,
           indexName: definition.name,
           fieldsIndexed: definition.fields,
@@ -584,6 +587,7 @@ export class LogsMCP extends BaseMCP {
             diskUsage: 0
           }
         };
+        return true;
       }
 
       // Create high-volume log index
@@ -665,20 +669,21 @@ export class LogsMCP extends BaseMCP {
         Math.min(99, (recordCount / 1000) * 50) : 
         recordCount * 0.9;
 
-      return {
+      // Store index creation result details in class property
+      this.lastIndexCreationResult = {
         success: true,
         indexName: definition.name,
         fieldsIndexed: definition.fields,
         performance: {
           estimatedImprovement,
-          querySpeedup: recordCount > 10000 ? 
-            `${Math.round(recordCount / 10)}x faster` : 
-            `${Math.round(recordCount / 2)}x faster`,
+          querySpeedup: `Up to ${estimatedImprovement.toFixed(1)}% faster`,
           diskUsage
         }
       };
+
+      return true;
     } catch (error) {
-      throw new Error(`Failed to create logs index ${definition.name}: ${(error as Error).message}`);
+      return false;
     }
   }
 
@@ -702,11 +707,11 @@ export class LogsMCP extends BaseMCP {
       // 1. Create indexes for high-frequency error patterns
       const topErrors = await this.analyzeErrorPatterns();
       for (const errorType of topErrors.slice(0, 5)) {
-        await this.createIndex({
-          name: `error_pattern_${errorType.replace(/[^a-zA-Z0-9]/g, '_')}_idx`,
-          fields: ['errorType', 'level'],
-          background: true
-        });
+        await this.createIndex(
+          `error_pattern_${errorType.replace(/[^a-zA-Z0-9]/g, '_')}_idx`,
+          ['errorType', 'level'],
+          { background: true }
+        );
         optimizations.push(`Created error pattern index for: ${errorType}`);
       }
 
@@ -1191,11 +1196,11 @@ export class LogsMCP extends BaseMCP {
       .map(([field]) => field);
     
     for (const field of topFields) {
-      await this.createIndex({
-        name: `structured_${field}_idx`,
-        fields: [`structured.${field}`],
-        background: true
-      });
+      await this.createIndex(
+        `structured_${field}_idx`,
+        [`structured.${field}`],
+        { background: true }
+      );
     }
   }
 

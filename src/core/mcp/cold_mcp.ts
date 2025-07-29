@@ -309,10 +309,10 @@ export class ColdMCP extends BaseMCP {
 
   private determineRetentionCategory(record: DataRecord): string {
     // Determine retention category based on record type and domain
-    if (record.type === 'debug' || record.metadata?.priority === 'debug') {
+    if (record.type === MCPType.LOGS || record.metadata?.priority === 'debug') {
       return 'debug';
     }
-    if (record.type === 'log' && record.metadata?.level === 'error') {
+    if (record.type === MCPType.LOGS && record.metadata?.level === 'error') {
       return 'permanent';
     }
     if (record.domain === 'user' || record.domain === 'chat') {
@@ -682,14 +682,14 @@ export class ColdMCP extends BaseMCP {
   }
 
   // Add missing methods for type compatibility
-  async optimize(): Promise<void> {
+  override async optimize(): Promise<void> {
     // Optimize compression, batching, and archival strategies
     await this.performBackgroundOptimization();
     await this.compressUncompressedRecords();
     await this.analyzeCostOptimizationOpportunities();
   }
 
-  async updateConfiguration(newConfig: Partial<MCPConfig>): Promise<boolean> {
+  override async updateConfiguration(newConfig: Partial<MCPConfig>): Promise<boolean> {
     try {
       // Update cold-specific configuration
       if (newConfig.compressionEnabled !== undefined) {

@@ -240,8 +240,7 @@ router.post('/login',
         requestId,
       } as ApiResponse);
     }
-  }
-);
+  });
 
 /**
  * @swagger
@@ -424,7 +423,6 @@ router.get('/profile',
       requestId
     } as ApiResponse);
   }));
-);
 
 /**
  * @swagger
@@ -533,7 +531,6 @@ router.post('/change-password',
       } as ApiResponse);
     }
   }));
-);
 
 /**
  * @swagger
@@ -569,7 +566,6 @@ router.post('/logout',
       requestId
     } as ApiResponse);
   }));
-);
 
 /**
  * @swagger
@@ -630,6 +626,5 @@ router.post('/refresh',
       } as ApiResponse);
     }
   }));
-);
 
 export default router;

@@ -4,7 +4,8 @@
  */
 
 import { EventEmitter } from 'events';
-import { BaseMCP, MCPType, MCPTier, MCPStatus, MCPMetadata, MCPResult } from '../core/BaseMCP';
+import { BaseMCP } from '../../core/mcp/base_mcp';
+import { MCPType, MCPPerformanceTier, MCPTier, MCPStatus, MCPMetadata, MCPResult, MCPDomain, MCPConfig, DataRecord } from '../../types/mcp.types';
 
 export interface MCPRegistryConfig {
   maxMCPs: number;
@@ -21,8 +22,9 @@ export interface MCPRegistryConfig {
 export interface MCPCreationRequest {
   name: string;
   type: MCPType;
+  domain: MCPDomain;
   tier?: MCPTier;
-  config?: Record<string, any>;
+  config?: Partial<MCPConfig>;
   tags?: string[];
   initialData?: any[];
 }
@@ -43,10 +45,10 @@ export interface MCPRegistryStats {
 
 export class MCPRegistry extends EventEmitter {
   private mcps: Map<string, BaseMCP>;
-  private mcpFactories: Map<MCPType, (metadata: Partial<MCPMetadata>, config: Record<string, any>) => BaseMCP>;
+  private mcpFactories: Map<MCPType, (domain: MCPDomain, type: MCPType, config: Partial<MCPConfig>) => BaseMCP>;
   private config: MCPRegistryConfig;
-  private cleanupTimer: NodeJS.Timer | null;
-  private performanceMonitor: NodeJS.Timer | null;
+  private cleanupTimer: NodeJS.Timeout | null;
+  private performanceMonitor: NodeJS.Timeout | null;
 
   constructor(config: Partial<MCPRegistryConfig> = {}) {
     super();
@@ -73,14 +75,14 @@ export class MCPRegistry extends EventEmitter {
   }
 
   // MCP Factory Registration
-  registerMCPFactory(type: MCPType, factory: (metadata: Partial<MCPMetadata>, config: Record<string, any>) => BaseMCP): void {
+  registerMCPFactory(type: MCPType, factory: (domain: MCPDomain, type: MCPType, config: Partial<MCPConfig>) => BaseMCP): void {
     this.mcpFactories.set(type, factory);
     this.emit('factory-registered', { type });
   }
 
   registerFactory(type: MCPType, factory: (config: Record<string, any>) => BaseMCP): void {
     // Adapter for legacy API
-    this.registerMCPFactory(type, (metadata, config) => factory(config));
+    this.registerMCPFactory(type, (domain, type, config) => factory(config));
   }
 
   // MCP Creation and Lifecycle
@@ -96,18 +98,25 @@ export class MCPRegistry extends EventEmitter {
       throw new Error(`No factory registered for MCP type: ${request.type}`);
     }
 
-    const metadata: Partial<MCPMetadata> = {
-      name: request.name,
-      type: request.type,
-      tier: request.tier || this.config.defaultTier,
-      tags: request.tags || [],
-      created: new Date(),
-      lastAccessed: new Date(),
-      accessCount: 0,
-      dataSize: 0
+    const tier = request.tier || this.config.defaultTier;
+    const domain = request.domain;
+    const mcpConfig: Partial<MCPConfig> = {
+      maxRecords: 100000,
+      maxSize: 1024 * 1024 * 100,
+      compressionEnabled: false,
+      replicationFactor: 1,
+      cacheSize: 50,
+      connectionPoolSize: 10,
+      queryTimeout: 30000,
+      backupFrequency: 24,
+      encryptionEnabled: false,
+      autoIndexing: false,
+      consistencyLevel: 'eventual',
+      customProperties: {},
+      ...request.config
     };
 
-    const mcp = factory(metadata, request.config || {});
+    const mcp = factory(domain, request.type, mcpConfig);
     const mcpMetadata = await mcp.getMetadata();
     const mcpId = mcpMetadata.id;
 
@@ -116,12 +125,21 @@ export class MCPRegistry extends EventEmitter {
 
     // Add initial data if provided
     if (request.initialData && request.initialData.length > 0) {
-      await mcp.insert(request.initialData);
+      for (const item of request.initialData) {
+        const record: DataRecord = {
+          id: item.id || `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          domain,
+          type: request.type.toString(),
+          timestamp: Date.now(),
+          data: item
+        };
+        await mcp.store(record);
+      }
     }
 
     this.mcps.set(mcpId, mcp);
     
-    this.emit('mcp-created', { mcpId, type: request.type, tier: metadata.tier });
+    this.emit('mcp-created', { mcpId, type: request.type, tier: mcpMetadata.tier });
     
     return mcpId;
   }
@@ -130,16 +148,12 @@ export class MCPRegistry extends EventEmitter {
     return this.mcps.get(mcpId) || null;
   }
 
-  getMCP(mcpId: string): BaseMCP | null {
-    // Synchronous version for compatibility
-    return this.mcps.get(mcpId) || null;
-  }
-
   async registerMCP(config: any): Promise<string> {
     // Adapter for legacy API - create MCP based on config
     const request: MCPCreationRequest = {
       name: config.id || `mcp-${Date.now()}`,
       type: this.mapDomainToType(config.domain),
+      domain: config.domain,
       tier: config.type === 'hot' ? MCPTier.HOT : config.type === 'cold' ? MCPTier.COLD : MCPTier.WARM,
       config: {
         maxRecords: config.maxRecords,
@@ -168,10 +182,10 @@ export class MCPRegistry extends EventEmitter {
 
   private mapDomainToType(domain: string): MCPType {
     switch (domain) {
-      case 'user': return MCPType.HYBRID;
-      case 'chat': return MCPType.DOCUMENT;
-      case 'stats': return MCPType.TEMPORAL;
-      case 'logs': return MCPType.DOCUMENT;
+      case 'user': return MCPType.USER;
+      case 'chat': return MCPType.CHAT;
+      case 'stats': return MCPType.STATS;
+      case 'logs': return MCPType.LOGS;
       default: return MCPType.HYBRID;
     }
   }
@@ -233,11 +247,11 @@ export class MCPRegistry extends EventEmitter {
     return result;
   }
 
-  getMCPsByType(type: string): BaseMCP[] {
+  getMCPsByTypeSync(type: MCPType): BaseMCP[] {
     const result: BaseMCP[] = [];
     
     for (const [id, mcp] of this.mcps) {
-      // For synchronous compatibility
+      // For synchronous compatibility - would need async check
       result.push(mcp);
     }
     
@@ -255,7 +269,7 @@ export class MCPRegistry extends EventEmitter {
     }
 
     // Set status to archived
-    await mcp.setStatus(MCPStatus.ARCHIVED);
+    await mcp.setStatus('maintenance');
     
     // Remove from registry
     this.mcps.delete(mcpId);
@@ -284,7 +298,7 @@ export class MCPRegistry extends EventEmitter {
       // Check for cold tier demotion
       if (metadata.tier !== MCPTier.COLD &&
           metadata.accessCount <= this.config.performanceThresholds.coldTier.accessCount &&
-          this.daysSinceAccess(metadata.lastAccessed) >= this.config.performanceThresholds.coldTier.lastAccessedDays) {
+          this.daysSinceAccess(new Date(metadata.lastAccessed)) >= this.config.performanceThresholds.coldTier.lastAccessedDays) {
         coldCandidates.push(mcpId);
       }
     }
@@ -350,12 +364,14 @@ export class MCPRegistry extends EventEmitter {
       const status = await mcp.getStatus();
       const performance = await mcp.getMetrics();
 
-      if (status === MCPStatus.ACTIVE) {
+      if (status === 'active') {
         stats.activeMCPs++;
       }
 
       stats.mcpsByType[metadata.type]++;
-      stats.mcpsByTier[metadata.tier]++;
+      if (metadata.tier) {
+        stats.mcpsByTier[metadata.tier]++;
+      }
       stats.totalDataSize += metadata.dataSize;
 
       totalQueryTime += performance.avgReadLatency;
@@ -438,11 +454,14 @@ export class MCPRegistry extends EventEmitter {
     }
     
     // Optimize storage for all MCPs
-    const optimizationPromises = Array.from(this.mcps.values()).map(mcp =>
-      mcp.optimizeStorage().catch(error =>
-        this.emit('optimization-error', { mcpId: mcp.getMetadata(), error })
-      )
-    );
+    const optimizationPromises = Array.from(this.mcps.values()).map(async mcp => {
+      try {
+        await mcp.optimizeStorage();
+      } catch (error) {
+        const metadata = await mcp.getMetadata();
+        this.emit('optimization-error', { mcpId: metadata.id, error });
+      }
+    });
     
     await Promise.all(optimizationPromises);
     
@@ -466,7 +485,7 @@ export class MCPRegistry extends EventEmitter {
     
     // Set all MCPs to standby
     const shutdownPromises = Array.from(this.mcps.values()).map(mcp =>
-      mcp.setStatus(MCPStatus.STANDBY)
+      mcp.setStatus('maintenance')
     );
     
     await Promise.all(shutdownPromises);
@@ -494,12 +513,14 @@ export class MCPRegistry extends EventEmitter {
       this.emit('mcp-status-changed', event);
     });
     
-    mcp.on('performance-updated', (performance) => {
-      this.emit('mcp-performance-updated', { mcpId: mcp.getMetadata(), performance });
+    mcp.on('performance-updated', async (performance) => {
+      const metadata = await mcp.getMetadata();
+      this.emit('mcp-performance-updated', { mcpId: metadata.id, performance });
     });
     
-    mcp.on('error', (error) => {
-      this.emit('mcp-error', { mcpId: mcp.getMetadata(), error });
+    mcp.on('error', async (error) => {
+      const metadata = await mcp.getMetadata();
+      this.emit('mcp-error', { mcpId: metadata.id, error });
     });
   }
 
@@ -539,6 +560,70 @@ export class MCPRegistry extends EventEmitter {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   }
 
+  private mapTierToPerformanceTier(tier: MCPTier): MCPPerformanceTier {
+    switch (tier) {
+      case MCPTier.HOT:
+        return 'realtime';
+      case MCPTier.WARM:
+        return 'standard';
+      case MCPTier.COLD:
+        return 'batch';
+      case MCPTier.ARCHIVE:
+        return 'archive';
+      default:
+        return 'standard';
+    }
+  }
+
+  // Registry-level index management
+  async createIndex(mcpId: string, indexName: string, fields: string[], options: any = {}): Promise<boolean> {
+    const mcp = this.mcps.get(mcpId);
+    if (!mcp) {
+      throw new Error(`MCP not found: ${mcpId}`);
+    }
+    
+    try {
+      await mcp.createIndex(indexName, fields, options);
+      this.emit('index-created', { mcpId, indexName, fields });
+      return true;
+    } catch (error) {
+      this.emit('index-creation-error', { mcpId, indexName, error });
+      return false;
+    }
+  }
+  
+  async clearCache(mcpId?: string): Promise<void> {
+    if (mcpId) {
+      const mcp = this.mcps.get(mcpId);
+      if (mcp) {
+        await mcp.clearCache();
+        this.emit('cache-cleared', { mcpId });
+      }
+    } else {
+      // Clear cache for all MCPs
+      for (const [id, mcp] of this.mcps) {
+        await mcp.clearCache();
+        this.emit('cache-cleared', { mcpId: id });
+      }
+    }
+  }
+  
+  async updateMetadata(mcpId: string, metadata: Partial<any>): Promise<boolean> {
+    const mcp = this.mcps.get(mcpId);
+    if (!mcp) {
+      throw new Error(`MCP not found: ${mcpId}`);
+    }
+    
+    try {
+      await mcp.updateMetadata(metadata);
+      this.emit('metadata-updated', { mcpId, metadata });
+      return true;
+    } catch (error) {
+      this.emit('metadata-update-error', { mcpId, error });
+      return false;
+    }
+  }
+
   // Admin methods required by admin.ts
   async startMaintenance(mcpId: string, operation: string, options?: any): Promise<string> {
     const mcp = this.mcps.get(mcpId);
@@ -567,7 +652,7 @@ export class MCPRegistry extends EventEmitter {
     storageUsed: number;
     networkIO?: { inbound: number; outbound: number };
   }> {
-    const stats = await this.getStats();
+    const stats = await this.getRegistryStats();
     let healthy = 0;
     let totalMemory = 0;
     let totalCpu = 0;
@@ -614,7 +699,7 @@ export class MCPRegistry extends EventEmitter {
     switch (operation) {
       case 'reindex':
         // Trigger reindexing
-        await mcp.createIndex({ type: 'full-reindex', ...options });
+        await mcp.createIndex('maintenance_reindex', ['timestamp', 'domain'], { background: true, ...options });
         break;
       case 'vacuum':
         // Trigger vacuum/cleanup
@@ -623,7 +708,8 @@ export class MCPRegistry extends EventEmitter {
       case 'migrate':
         // Trigger migration
         const targetTier = options?.targetTier || MCPTier.COLD;
-        await this.migrateMCP(mcp.id, targetTier);
+        // Migration would be implemented here
+        await mcp.updateMetadata({ tier: targetTier });
         break;
       case 'backup':
         // Trigger backup

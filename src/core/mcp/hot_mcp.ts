@@ -601,14 +601,14 @@ export class HotMCP extends BaseMCP {
   }
 
   // Add missing methods for type compatibility
-  async optimize(): Promise<void> {
+  override async optimize(): Promise<void> {
     // Optimize cache, indices, and performance parameters
     this.optimizeCache();
     this.triggerPerformanceOptimization();
     this.adaptCacheConfiguration();
   }
 
-  async updateConfiguration(newConfig: Partial<MCPConfig>): Promise<boolean> {
+  override async updateConfiguration(newConfig: Partial<MCPConfig>): Promise<boolean> {
     try {
       // Update hot-specific configuration
       if (newConfig.cacheSize !== undefined) {

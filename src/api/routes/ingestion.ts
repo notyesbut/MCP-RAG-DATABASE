@@ -14,7 +14,7 @@ import {
   AuthenticatedRequest,
   PaginatedResponse
 } from '../../types/api.types';
-import { DataRecord, MCPDomain } from '../../types/mcp.types';
+import { DataRecord, MCPDomain, MCPType } from '../../types/mcp.types';
 import { logger } from '../../utils/logger';
 import { requirePermission } from '../middleware/auth';
 import { config } from '../../api/config/config';
@@ -220,7 +220,8 @@ router.post('/batch',
         id: uuidv4(),
         data: item.data,
         domain: (item.metadata?.type || 'general') as MCPDomain,
-        type: item.metadata?.type || 'data',
+        type: MCPType.HYBRID,
+        size: JSON.stringify(item.data).length,
         timestamp: Date.now(),
         metadata: item.metadata || {},
         routing: item.routing
@@ -552,7 +553,6 @@ router.post('/validate',
         } as ApiResponse);
       }
     }));
-  );
 
   /**
    * @swagger
@@ -614,7 +614,7 @@ router.post('/validate',
           requestId
         } as ApiResponse);
       }
-    }));
+    })
   );
 
   return router;

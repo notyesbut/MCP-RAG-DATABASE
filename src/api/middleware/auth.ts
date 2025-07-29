@@ -52,7 +52,7 @@ const findUserById = async (userId: string): Promise<User | null> => {
  * Validates JWT token and attaches user to request
  */
 export const authMiddleware = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
@@ -80,8 +80,8 @@ export const authMiddleware = async (
     user.lastLogin = new Date();
     
     // Attach user and token to request
-    req.user = user;
-    req.token = token;
+    (req as AuthenticatedRequest).user = user;
+    (req as AuthenticatedRequest).token = token;
 
     authLogger.info('User authenticated', {
       userId: user.id,
@@ -111,15 +111,16 @@ export const authMiddleware = async (
 export const requireRole = (roles: string | string[]) => {
   const allowedRoles = Array.isArray(roles) ? roles : [roles];
   
-  return (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
-    if (!req.user) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const authReq = req as AuthenticatedRequest;
+    if (!authReq.user) {
       throw new AuthenticationError('Authentication required');
     }
 
-    if (!allowedRoles.includes(req.user.role)) {
+    if (!allowedRoles.includes(authReq.user.role)) {
       authLogger.warn('Authorization failed - insufficient role', {
-        userId: req.user.id,
-        userRole: req.user.role,
+        userId: authReq.user.id,
+        userRole: authReq.user.role,
         requiredRoles: allowedRoles,
         method: req.method,
         url: req.originalUrl
@@ -139,25 +140,26 @@ export const requireRole = (roles: string | string[]) => {
 export const requirePermission = (permissions: string | string[]) => {
   const requiredPermissions = Array.isArray(permissions) ? permissions : [permissions];
   
-  return (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
-    if (!req.user) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const authReq = req as AuthenticatedRequest;
+    if (!authReq.user) {
       throw new AuthenticationError('Authentication required');
     }
 
     // Admin users with '*' permission have access to everything
-    if (req.user.permissions.includes('*')) {
+    if (authReq.user.permissions.includes('*')) {
       return next();
     }
 
     // Check if user has all required permissions
     const hasPermission = requiredPermissions.every(permission => 
-      req.user!.permissions.includes(permission)
+      authReq.user!.permissions.includes(permission)
     );
 
     if (!hasPermission) {
       authLogger.warn('Authorization failed - insufficient permissions', {
-        userId: req.user.id,
-        userPermissions: req.user.permissions,
+        userId: authReq.user.id,
+        userPermissions: authReq.user.permissions,
         requiredPermissions,
         method: req.method,
         url: req.originalUrl
@@ -181,7 +183,7 @@ export const requireAdmin = requireRole('admin');
  * Attempts to authenticate but doesn't fail if no token provided
  */
 export const optionalAuth = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
@@ -202,9 +204,10 @@ export const optionalAuth = async (
  * Rate limiting bypass for authenticated users
  * Provides higher rate limits for authenticated users
  */
-export const authRateLimitSkip = (req: AuthenticatedRequest): boolean => {
+export const authRateLimitSkip = (req: Request): boolean => {
   // Skip rate limiting for admin users
-  if (req.user?.role === 'admin') {
+  const authReq = req as AuthenticatedRequest;
+  if (authReq.user?.role === 'admin') {
     return true;
   }
   
