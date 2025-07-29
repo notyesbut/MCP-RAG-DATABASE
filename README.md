@@ -833,8 +833,6 @@ The Enterprise Multi-MCP Smart Database System represents the **future of intell
 
 *No SQL. Just Natural Language. The Future is Now.*
 
-[![GitHub](https://img.shields.io/github/stars/your-org/enterprise-mcp-database?style=social)](https://github.com/your-org/enterprise-mcp-database)
-[![Discord](https://img.shields.io/discord/123456789?label=Discord&logo=discord)](https://discord.gg/enterprise-mcp)
-[![Twitter](https://img.shields.io/twitter/follow/ragcore?style=social)](https://twitter.com/ragcore)
+
 
 </div>
