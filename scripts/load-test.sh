@@ -4,14 +4,14 @@
 
 set -e
 
-# Цвета
+# Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-# Параметры тестирования (можно изменить)
+# Test parameters (can be changed)
 CONCURRENT_USERS=${1:-50}
 REQUESTS_PER_USER=${2:-20}
 RAMP_UP_TIME=${3:-10}
@@ -20,30 +20,30 @@ TEST_DURATION=${4:-60}
 print_header() {
     echo -e "${BLUE}"
     echo "⚡ =================================================="
-    echo "   НАГРУЗОЧНОЕ ТЕСТИРОВАНИЕ MCP DATABASE"
+    echo "   LOAD TESTING MCP DATABASE"
     echo "=================================================="
-    echo "🔧 Параметры теста:"
-    echo "   👥 Параллельных пользователей: $CONCURRENT_USERS"
-    echo "   📊 Запросов на пользователя: $REQUESTS_PER_USER"
-    echo "   ⏱️ Время нарастания нагрузки: ${RAMP_UP_TIME}s"
-    echo "   🕐 Длительность теста: ${TEST_DURATION}s"
+    echo "🔧 Test Parameters:"
+    echo "   👥 Concurrent Users: $CONCURRENT_USERS"
+    echo "   📊 Requests per User: $REQUESTS_PER_USER"
+    echo "   ⏱️ Ramp-up Time: ${RAMP_UP_TIME}s"
+    echo "   🕐 Test Duration: ${TEST_DURATION}s"
     echo "==================================================${NC}"
     echo ""
 }
 
 check_system() {
-    echo -e "${BLUE}🔍 Проверяем готовность системы...${NC}"
+    echo -e "${BLUE}🔍 Checking system readiness...${NC}"
     
     if ! curl -s http://localhost:3000/api/v1/health > /dev/null; then
-        echo -e "${RED}❌ Система не запущена! Запустите: npm start${NC}"
+        echo -e "${RED}❌ System is not running! Start it with: npm start${NC}"
         exit 1
     fi
     
-    echo -e "${GREEN}✅ Система готова к тестированию${NC}"
+    echo -e "${GREEN}✅ System is ready for testing${NC}"
     echo ""
 }
 
-# Функция для генерации случайных тестовых данных
+# Function to generate random test data
 generate_test_data() {
     local user_id=$1
     local request_id=$2
@@ -51,7 +51,7 @@ generate_test_data() {
     
     case $data_type in
         0)
-            # Пользовательская активность
+            # User activity
             echo '{
                 "data": {
                     "user_activity": {
@@ -70,12 +70,12 @@ generate_test_data() {
             }'
             ;;
         1)
-            # Сообщения чата
+            # Chat messages
             echo '{
                 "data": {
                     "chat_message": {
                         "messageId": "load_msg_'$user_id'_'$request_id'",
-                        "content": "Тестовое сообщение от пользователя '$user_id' запрос '$request_id'",
+                        "content": "Test message from user '$user_id' request '$request_id'",
                         "userId": "load_test_user_'$user_id'",
                         "channelId": "load_test_channel",
                         "timestamp": '$(date +%s000)'
@@ -84,13 +84,13 @@ generate_test_data() {
             }'
             ;;
         2)
-            # Системные метрики
+            # System metrics
             echo '{
                 "data": {
                     "system_metric": {
                         "metricId": "load_metric_'$user_id'_'$request_id'",
                         "name": "cpu_usage",
-                        "value": '$((RANDOM % 100))',
+                        "value": '$(($RANDOM % 100))',
                         "timestamp": '$(date +%s000)',
                         "source": "load_test_server_'$user_id'"
                     }
@@ -98,7 +98,7 @@ generate_test_data() {
             }'
             ;;
         3)
-            # Лог записи
+            # Log entry
             echo '{
                 "data": {
                     "log_entry": {
@@ -114,12 +114,12 @@ generate_test_data() {
     esac
 }
 
-# Функция для выполнения запросов одним пользователем
+# Function to execute requests for a single user
 simulate_user() {
     local user_id=$1
     local start_delay=$2
     
-    # Ждем время нарастания нагрузки
+    # Wait for ramp-up time
     sleep $start_delay
     
     local successful_requests=0
@@ -129,11 +129,11 @@ simulate_user() {
     for request_id in $(seq 1 $REQUESTS_PER_USER); do
         local start_time=$(date +%s%3N)
         
-        # Генерируем тестовые данные
+        # Generate test data
         local test_data=$(generate_test_data $user_id $request_id)
         
-        # Отправляем запрос
-        local response=$(curl -s -w "%{http_code}" -X POST http://localhost:3000/api/v1/ingest \
+        # Send request
+        local response=$(curl -s -w "%{\http_code}" -X POST http://localhost:3000/api/v1/ingest \
             -H "Content-Type: application/json" \
             -d "$test_data" 2>/dev/null)
         
@@ -141,7 +141,7 @@ simulate_user() {
         local response_time=$((end_time - start_time))
         total_response_time=$((total_response_time + response_time))
         
-        # Проверяем успешность запроса
+        # Check request success
         local http_code="${response: -3}"
         local response_body="${response%???}"
         
@@ -156,17 +156,17 @@ simulate_user() {
             failed_requests=$((failed_requests + 1))
         fi
         
-        # Случайная пауза между запросами (50-200ms)
-        sleep 0.$((RANDOM % 150 + 50))
+        # Random pause between requests (50-200ms)
+        sleep 0.$(($RANDOM % 150 + 50))
     done
     
     local avg_response_time=$((total_response_time / REQUESTS_PER_USER))
     
-    # Записываем результаты в временный файл
+    # Write results to a temporary file
     echo "$user_id,$successful_requests,$failed_requests,$avg_response_time" >> /tmp/load_test_results.csv
 }
 
-# Функция для мониторинга системы во время теста
+# Function to monitor the system during the test
 monitor_system() {
     local test_start_time=$(date +%s)
     
@@ -190,141 +190,141 @@ monitor_system() {
     done
 }
 
-# Основная функция нагрузочного тестирования
+# Main load testing function
 run_load_test() {
-    echo -e "${BLUE}🚀 Запускаем нагрузочное тестирование...${NC}"
+    echo -e "${BLUE}🚀 Starting load test...${NC}"
     
-    # Очищаем предыдущие результаты
+    # Clear previous results
     rm -f /tmp/load_test_results.csv /tmp/system_metrics.csv
     echo "user_id,successful_requests,failed_requests,avg_response_time_ms" > /tmp/load_test_results.csv
     
-    # Запускаем мониторинг системы в фоне
+    # Start system monitoring in the background
     monitor_system &
     local monitor_pid=$!
     
-    # Получаем базовые метрики перед тестом
+    # Get baseline metrics before the test
     local initial_metrics=$(curl -s http://localhost:3000/api/v1/metrics)
     local initial_memory=$(echo "$initial_metrics" | jq -r '.memoryUsage' 2>/dev/null || echo "0")
     
-    echo -e "${YELLOW}📊 Начальные метрики:${NC}"
-    echo "   💾 Память: ${initial_memory}MB"
+    echo -e "${YELLOW}📊 Initial Metrics:${NC}"
+    echo "   💾 Memory: ${initial_memory}MB"
     echo ""
     
     local test_start_time=$(date +%s)
     
-    # Запускаем симуляцию пользователей
+    # Start user simulation
     for user_id in $(seq 1 $CONCURRENT_USERS); do
-        # Рассчитываем задержку для плавного нарастания нагрузки
+        # Calculate delay for smooth ramp-up
         local start_delay=$(echo "scale=2; $RAMP_UP_TIME * ($user_id - 1) / $CONCURRENT_USERS" | bc -l 2>/dev/null || echo "0")
         
-        # Запускаем пользователя в фоне
+        # Start user in the background
         simulate_user $user_id $start_delay &
         
-        # Показываем прогресс
+        # Show progress
         if [ $((user_id % 10)) -eq 0 ]; then
-            echo -e "${BLUE}👥 Запущено пользователей: $user_id/$CONCURRENT_USERS${NC}"
+            echo -e "${BLUE}👥 Users started: $user_id/$CONCURRENT_USERS${NC}"
         fi
     done
     
-    echo -e "${YELLOW}⏳ Ожидаем завершения всех запросов...${NC}"
+    echo -e "${YELLOW}⏳ Waiting for all requests to complete...${NC}"
     
-    # Ждем завершения всех пользователей
+    # Wait for all users to finish
     wait
     
-    # Останавливаем мониторинг
+    # Stop monitoring
     kill $monitor_pid 2>/dev/null || true
     
     local test_end_time=$(date +%s)
     local actual_test_duration=$((test_end_time - test_start_time))
     
-    echo -e "${GREEN}✅ Нагрузочное тестирование завершено!${NC}"
-    echo "   ⏱️ Фактическое время: ${actual_test_duration}s"
+    echo -e "${GREEN}✅ Load testing finished!${NC}"
+    echo "   ⏱️ Actual time: ${actual_test_duration}s"
     echo ""
 }
 
-# Анализ результатов
+# Analyze results
 analyze_results() {
-    echo -e "${BLUE}📊 Анализируем результаты...${NC}"
+    echo -e "${BLUE}📊 Analyzing results...${NC}"
     echo ""
     
     if [ ! -f "/tmp/load_test_results.csv" ]; then
-        echo -e "${RED}❌ Файл результатов не найден${NC}"
+        echo -e "${RED}❌ Results file not found${NC}"
         return 1
     fi
     
-    # Анализируем результаты пользователей
+    # Analyze user results
     local total_users=$(tail -n +2 /tmp/load_test_results.csv | wc -l)
     local total_successful=$(tail -n +2 /tmp/load_test_results.csv | awk -F',' '{sum+=$2} END {print sum+0}')
     local total_failed=$(tail -n +2 /tmp/load_test_results.csv | awk -F',' '{sum+=$3} END {print sum+0}')
     local total_requests=$((total_successful + total_failed))
     local success_rate=$(echo "scale=2; $total_successful * 100 / $total_requests" | bc -l 2>/dev/null || echo "0")
     
-    # Средний отклик
+    # Average response
     local avg_response=$(tail -n +2 /tmp/load_test_results.csv | awk -F',' '{sum+=$4; count++} END {print (count>0) ? sum/count : 0}')
     
-    # Пропускная способность
+    # Throughput
     local throughput=$(echo "scale=2; $total_successful / $TEST_DURATION" | bc -l 2>/dev/null || echo "0")
     
-    echo -e "${GREEN}📈 РЕЗУЛЬТАТЫ НАГРУЗОЧНОГО ТЕСТИРОВАНИЯ:${NC}"
+    echo -e "${GREEN}📈 LOAD TEST RESULTS:${NC}"
     echo "=================================================="
-    echo "👥 Общие показатели:"
-    echo "   • Пользователей: $total_users"
-    echo "   • Всего запросов: $total_requests"
-    echo "   • Успешных: $total_successful"
-    echo "   • Неудачных: $total_failed"
-    echo "   • Процент успеха: ${success_rate}%"
+    echo "👥 Overall Metrics:"
+    echo "   • Users: $total_users"
+    echo "   • Total Requests: $total_requests"
+    echo "   • Successful: $total_successful"
+    echo "   • Failed: $total_failed"
+    echo "   • Success Rate: ${success_rate}%"
     echo ""
-    echo "⚡ Производительность:"
-    echo "   • Среднее время отклика: ${avg_response}ms"
-    echo "   • Пропускная способность: ${throughput} запросов/сек"
+    echo "⚡ Performance:"
+    echo "   • Average Response Time: ${avg_response}ms"
+    echo "   • Throughput: ${throughput} requests/sec"
     echo ""
     
-    # Анализ системных метрик
+    # Analyze system metrics
     if [ -f "/tmp/system_metrics.csv" ]; then
         local max_memory=$(tail -n +2 /tmp/system_metrics.csv | awk -F',' '{if($2>max) max=$2} END {print max+0}')
         local max_connections=$(tail -n +2 /tmp/system_metrics.csv | awk -F',' '{if($3>max) max=$3} END {print max+0}')
         local max_qps=$(tail -n +2 /tmp/system_metrics.csv | awk -F',' '{if($4>max) max=$4} END {print max+0}')
         local avg_cache_hit=$(tail -n +2 /tmp/system_metrics.csv | awk -F',' '{sum+=$6; count++} END {print (count>0) ? sum/count : 0}')
         
-        echo "🖥️ Системные метрики:"
-        echo "   • Пиковое использование памяти: ${max_memory}MB"
-        echo "   • Максимум соединений: $max_connections"
-        echo "   • Пиковая скорость: ${max_qps} запросов/сек"
-        echo "   • Средний коэф. попаданий в кеш: ${avg_cache_hit}%"
+        echo "🖥️ System Metrics:"
+        echo "   • Peak Memory Usage: ${max_memory}MB"
+        echo "   • Max Connections: $max_connections"
+        echo "   • Peak QPS: ${max_qps} requests/sec"
+        echo "   • Average Cache Hit Rate: ${avg_cache_hit}%"
         echo ""
     fi
     
-    # Оценка результатов
-    echo "🎯 Оценка результатов:"
+    # Results Assessment
+    echo "🎯 Results Assessment:"
     
     if (( $(echo "$success_rate >= 95" | bc -l 2>/dev/null) )); then
-        echo -e "   ${GREEN}✅ Отличная стабильность (${success_rate}% успеха)${NC}"
+        echo -e "   ${GREEN}✅ Excellent stability (${success_rate}% success)${NC}"
     elif (( $(echo "$success_rate >= 90" | bc -l 2>/dev/null) )); then
-        echo -e "   ${YELLOW}⚠️ Хорошая стабильность (${success_rate}% успеха)${NC}"
+        echo -e "   ${YELLOW}⚠️ Good stability (${success_rate}% success)${NC}"
     else
-        echo -e "   ${RED}❌ Низкая стабильность (${success_rate}% успеха)${NC}"
+        echo -e "   ${RED}❌ Low stability (${success_rate}% success)${NC}"
     fi
     
     if (( $(echo "$avg_response <= 200" | bc -l 2>/dev/null) )); then
-        echo -e "   ${GREEN}✅ Отличное время отклика (${avg_response}ms)${NC}"
+        echo -e "   ${GREEN}✅ Excellent response time (${avg_response}ms)${NC}"
     elif (( $(echo "$avg_response <= 500" | bc -l 2>/dev/null) )); then
-        echo -e "   ${YELLOW}⚠️ Приемлемое время отклика (${avg_response}ms)${NC}"
+        echo -e "   ${YELLOW}⚠️ Acceptable response time (${avg_response}ms)${NC}"
     else
-        echo -e "   ${RED}❌ Медленное время отклика (${avg_response}ms)${NC}"
+        echo -e "   ${RED}❌ Slow response time (${avg_response}ms)${NC}"
     fi
     
     if (( $(echo "$throughput >= 100" | bc -l 2>/dev/null) )); then
-        echo -e "   ${GREEN}✅ Высокая пропускная способность (${throughput} req/s)${NC}"
+        echo -e "   ${GREEN}✅ High throughput (${throughput} req/s)${NC}"
     elif (( $(echo "$throughput >= 50" | bc -l 2>/dev/null) )); then
-        echo -e "   ${YELLOW}⚠️ Средняя пропускная способность (${throughput} req/s)${NC}"
+        echo -e "   ${YELLOW}⚠️ Medium throughput (${throughput} req/s)${NC}"
     else
-        echo -e "   ${RED}❌ Низкая пропускная способность (${throughput} req/s)${NC}"
+        echo -e "   ${RED}❌ Low throughput (${throughput} req/s)${NC}"
     fi
     
     echo "=================================================="
 }
 
-# Сохранение подробного отчета
+# Save detailed report
 save_report() {
     local report_file="load_test_report_$(date +%Y%m%d_%H%M%S).html"
     
@@ -385,23 +385,23 @@ EOF
 </html>
 EOF
     
-    echo -e "${GREEN}📄 Подробный отчет сохранен: $report_file${NC}"
+    echo -e "${GREEN}📄 Detailed report saved: $report_file${NC}"
 }
 
-# Очистка временных файлов
+# Cleanup temporary files
 cleanup() {
     rm -f /tmp/load_test_results.csv /tmp/system_metrics.csv
 }
 
-# Главная функция
+# Main function
 main() {
     print_header
     
-    # Проверяем зависимости
+    # Check dependencies
     if ! command -v bc >/dev/null 2>&1; then
-        echo -e "${RED}❌ bc не установлен. Установите: sudo apt-get install bc${NC}"
+        echo -e "${RED}❌ bc is not installed. Install it with: sudo apt-get install bc${NC}"
         exit 1
-    fi
+    }
     
     check_system
     run_load_test
@@ -409,10 +409,10 @@ main() {
     save_report
     cleanup
     
-    echo -e "${GREEN}🎉 Нагрузочное тестирование завершено успешно!${NC}"
+    echo -e "${GREEN}🎉 Load testing completed successfully!${NC}"
 }
 
-# Обработка сигналов для корректного завершения
+# Trap signals for proper cleanup
 trap cleanup EXIT
 
 # Run
