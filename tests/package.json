@@ -1,0 +1,8 @@
+{
+  "devDependencies": {
+    "jest-html-reporters": "^3.1.7"
+  },
+  "dependencies": {
+    "axios": "^1.11.0"
+  }
+}
