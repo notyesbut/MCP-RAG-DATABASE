@@ -8,11 +8,17 @@ Copyright:            © 2025 Gleb Stepanov
 
 Additional Use Grant: You may make Production Use of the Licensed Work **only if all of the following are simultaneously true**:
 
-• **Revenue / Size cap** – the legal entity (together with its parent and subsidiaries) has **annual gross revenue below USD 20 million *and* fewer than 250 employees**; and
-• **Purpose cap** – the Licensed Work (or any derivative) is used **solely for evaluation, academic research, or internal proof‑of‑concept development**, and **not** to operate or support a customer‑facing system in production; and
-• **Openness cap** – any derivative work that is deployed remains **Open Source under an OSI‑approved license**, and its complete corresponding source code is published in a public repository.
+• **Contribution requirement** – if the Licensed Work (or any derivative) is offered as a **Cloud Service**, the operator must either:
+– have at least **one non‑trivial pull‑request accepted upstream every calendar quarter**, *or*
+– maintain an **active GitHub Sponsor or Open Collective tier** supporting the project at **USD 500 per month or more**.
+• **Revenue cap** – the legal entity (together with its parent and subsidiaries) has **annual gross revenue below USD 50 million**; and
+• **Openness cap** – any derivative work deployed remains **Open Source under an OSI‑approved license**, and its complete corresponding source code is published in a public repository.
 
-All other Production Use – including use by entities that exceed the Revenue / Size cap, use as part of a **Cloud Service**, or deployment of a **closed‑source** derivative – **is prohibited until the Change Date**, unless a separate commercial license is obtained from the Licensor.
+Production Use that does not meet all the above criteria — including deployment of a Cloud Service without satisfying the contribution requirement, use by entities above the revenue cap, or deployment of a **closed‑source** derivative — **is prohibited until the Change Date**, unless a separate commercial license is obtained from the Licensor.
+
+Definition – «Cloud Service» means a commercial offering that allows any third party (other than your employees and contractors) to access the functionality of the Licensed Work (or a derivative) as a paid or free hosted service.
+
+Change Date\*\*, unless a separate commercial license is obtained from the Licensor.
 
 Definition – «Cloud Service» means a commercial offering that allows any third party (other than your employees and contractors) to access the functionality of the Licensed Work (or a derivative) as a paid or free hosted service.
 
