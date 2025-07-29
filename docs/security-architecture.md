@@ -253,18 +253,37 @@ graph TD
 ### Role Hierarchy
 ```mermaid
 graph TB
-    Admin[👑 Admin Role<br/>Permissions: ['*']] --> UserOps[All User Operations]
-    Admin --> SystemAdmin[System Administration]
-    Admin --> SecurityMgmt[Security Management]
-    
-    User[👤 User Role<br/>Permissions: ['query:read', 'ingest:write']] --> QueryRead[Query Data]
-    User --> IngestWrite[Ingest Data]
-    
-    Readonly[👁️ Readonly Role<br/>Permissions: ['query:read']] --> QueryReadOnly[Query Data Only]
-    
-    UserOps --> QueryRead
-    UserOps --> IngestWrite
-    UserOps --> QueryReadOnly
+%% ─────── Roles ───────
+    subgraph "Roles"
+        ADMIN["👑 Admin Role<br/>Permissions: ['*']"]
+        USER["👤 User Role<br/>Permissions: ['query:read', 'ingest:write']"]
+        READONLY["👁️ Readonly Role<br/>Permissions: ['query:read']"]
+    end
+
+%% ─────── Operations ───────
+    subgraph "Operations"
+        USER_OPS["All User Operations"]
+        SYS_ADMIN["System Administration"]
+        SEC_MGMT["Security Management"]
+
+        QUERY_READ["Query Data"]
+        INGEST_WRITE["Ingest Data"]
+    end
+
+%% Role → Operation edges
+    ADMIN --> USER_OPS
+    ADMIN --> SYS_ADMIN
+    ADMIN --> SEC_MGMT
+
+    USER  --> QUERY_READ
+    USER  --> INGEST_WRITE
+
+    READONLY --> QUERY_READ
+
+%% Internal breakdown of USER_OPS
+    USER_OPS --> QUERY_READ
+    USER_OPS --> INGEST_WRITE
+
 ```
 
 ### Permission Matrix
