@@ -38,7 +38,7 @@ export class QueryExecutionPlanner {
     // Determine execution strategy
     console.log('Determining execution strategy...');
     const strategy = await this.determineExecutionStrategy(interpretedQuery, mcpStates);
-    console.log('Strategy determined:', strategy.type);
+    console.log('Strategy determined:', strategy?.type || 'unknown');
     
     // Create execution phases
     console.log('Creating execution phases...');
@@ -98,7 +98,7 @@ export class QueryExecutionPlanner {
         try {
           mcpInstance = await this.mcpRegistry.getMCP(mcpId);
         } catch (registryError) {
-          console.warn(`Registry error for MCP ${mcpId}:`, registryError.message);
+          console.warn(`Registry error for MCP ${mcpId}:`, registryError instanceof Error ? registryError.message : String(registryError));
           mcpInstance = null;
         }
 
@@ -123,14 +123,14 @@ export class QueryExecutionPlanner {
         try {
           health = await mcpInstance.getHealth();
         } catch (healthError) {
-          console.warn(`Health check failed for MCP ${mcpId}:`, healthError.message);
+          console.warn(`Health check failed for MCP ${mcpId}:`, healthError instanceof Error ? healthError.message : String(healthError));
           health = { status: 'healthy', responseTime: 50 };
         }
 
         try {
           metrics = await mcpInstance.getMetrics();
         } catch (metricsError) {
-          console.warn(`Metrics check failed for MCP ${mcpId}:`, metricsError.message);
+          console.warn(`Metrics check failed for MCP ${mcpId}:`, metricsError instanceof Error ? metricsError.message : String(metricsError));
           metrics = { averageResponseTime: 50, successRate: 1.0 };
         }
         
@@ -152,13 +152,13 @@ export class QueryExecutionPlanner {
         try {
           currentLoad = this.calculateCurrentLoad(health, metrics);
         } catch (loadError) {
-          console.warn(`Load calculation failed for MCP ${mcpId}:`, loadError.message);
+          console.warn(`Load calculation failed for MCP ${mcpId}:`, loadError instanceof Error ? loadError.message : String(loadError));
         }
 
         try {
           priority = this.calculateMCPPriority(mcpId, capabilities, health);
         } catch (priorityError) {
-          console.warn(`Priority calculation failed for MCP ${mcpId}:`, priorityError.message);
+          console.warn(`Priority calculation failed for MCP ${mcpId}:`, priorityError instanceof Error ? priorityError.message : String(priorityError));
         }
         
         mcpStates.push({
@@ -177,7 +177,7 @@ export class QueryExecutionPlanner {
           lastUpdate: Date.now()
         });
       } catch (error) {
-        console.error(`Failed to analyze MCP ${mcpId}:`, error.message);
+        console.error(`Failed to analyze MCP ${mcpId}:`, error instanceof Error ? error.message : String(error));
         // Add fallback state for failed MCPs
         mcpStates.push({
           mcpId,
@@ -191,7 +191,7 @@ export class QueryExecutionPlanner {
           type: 'unknown',
           reliability: 0.5,
           lastUpdate: Date.now(),
-          error: error.message
+          error: error instanceof Error ? error.message : String(error)
         });
       }
     }
