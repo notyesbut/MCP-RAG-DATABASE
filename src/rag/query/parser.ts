@@ -304,7 +304,9 @@ class IntentClassificationEngine {
     }
     
     // Intent: SEARCH (enhanced with content analysis and explicit search detection)
-    const hasExplicitSearch = text.toLowerCase().includes('search') || text.toLowerCase().includes('find') && text.toLowerCase().includes('containing');
+    const hasExplicitSearch = text.toLowerCase().includes('search') || 
+                             (text.toLowerCase().includes('find') && text.toLowerCase().includes('containing')) ||
+                             (text.toLowerCase().includes('find') && text.toLowerCase().includes('all') && (features[1] > 0.15 || features[2] > 0.15));
     const searchBaseConfidence = hasExplicitSearch ? 0.85 : 0.55 + features[0] * 0.15;
     const searchBoost = features[4] > 0.2 ? 0.1 : 0;
     const searchConfidence = hasExplicitSearch ? 
@@ -316,13 +318,19 @@ class IntentClassificationEngine {
       parameters: { queryLength: features[0], actionWords: features[4], explicitSearch: hasExplicitSearch }
     });
     
-    // Intent: ANALYZE (for analytical queries)
-    if (features[3] > 0.2 || features[2] > 0.3) {
-      const analyzeConfidence = Math.min(0.87, 0.5 + features[3] * 0.2 + features[2] * 0.15);
+    // Intent: ANALYZE (for analytical queries - check for explicit analysis first)
+    const hasExplicitAnalyze = text.toLowerCase().includes('analyze') || text.toLowerCase().includes('analysis') || 
+                               text.toLowerCase().includes('insights') || text.toLowerCase().includes('trends') ||
+                               text.toLowerCase().includes('patterns') || text.toLowerCase().includes('behavior');
+    if (hasExplicitAnalyze || features[3] > 0.2 || features[2] > 0.3) {
+      const analyzeBaseConfidence = hasExplicitAnalyze ? 0.85 : 0.5;
+      const analyzeConfidence = hasExplicitAnalyze ? 
+        Math.min(0.95, analyzeBaseConfidence + features[3] * 0.05 + features[2] * 0.05) :
+        Math.min(0.87, analyzeBaseConfidence + features[3] * 0.2 + features[2] * 0.15);
       predictions.push({ 
         type: QueryIntent.ANALYZE, 
         confidence: analyzeConfidence,
-        parameters: { aggregation: features[3], temporal: features[2] }
+        parameters: { aggregation: features[3], temporal: features[2], explicitAnalyze: hasExplicitAnalyze }
       });
     }
     
@@ -616,21 +624,25 @@ export class NaturalLanguageParser {
     // Enhanced entity extraction with better patterns
     this.extractAdvancedFilters(text, filters, extractedEntities, context);
 
-    // Extract data types
+    // Extract data types (collect all matches, don't overwrite)
+    const foundDataTypes = new Set<DataType>();
     for (const [type, patterns] of this.dataTypePatterns) {
       for (const pattern of patterns) {
         const match = text.match(pattern);
         if (match) {
-          dataType = type;
-          extractedEntities.push({
-            type: 'dataType',
-            value: type,
-            confidence: 0.9,
-            position: {
-              start: match.index || 0,
-              end: (match.index || 0) + match[0].length
-            }
-          });
+          if (!foundDataTypes.has(type)) {
+            foundDataTypes.add(type);
+            dataType = type; // Keep the last one as primary for backward compatibility
+            extractedEntities.push({
+              type: 'dataType',
+              value: type,
+              confidence: 0.9,
+              position: {
+                start: match.index || 0,
+                end: (match.index || 0) + match[0].length
+              }
+            });
+          }
           break;
         }
       }
@@ -1027,53 +1039,84 @@ export class NaturalLanguageParser {
     const temporal = entities.temporal;
     const primaryIntentForMCP = intents[0]?.type;
 
-    // Determine primary MCPs based on data type
-    switch (dataType) {
-      case DataType.USERS:
-        mcps.push({
-          mcpId: 'user-mcp',
-          type: 'hot',
-          priority: 1,
-          estimatedLatency: 50,
-          queryFragment: { type: 'user_query', filters: entities.filters }
-        });
-        break;
+    // Extract all dataType entities to support multi-MCP queries
+    const allDataTypes = entities.extractedEntities
+      .filter(e => e.type === 'dataType')
+      .map(e => e.value as DataType);
+    
+    // Use the main dataType as default, but check all detected types
+    const dataTypesToCheck = allDataTypes.length > 0 ? allDataTypes : [dataType];
 
-      case DataType.MESSAGES:
-      case DataType.CHATS:
-        mcps.push({
-          mcpId: 'chat-mcp',
-          type: temporal === TemporalContext.RECENT || temporal === TemporalContext.TODAY ? 'hot' : 'cold',
-          priority: 1,
-          estimatedLatency: temporal === TemporalContext.RECENT ? 30 : 200,
-          queryFragment: { type: 'message_query', filters: entities.filters }
-        });
-        break;
+    // Determine primary MCPs based on all detected data types
+    for (const currentDataType of dataTypesToCheck) {
+      switch (currentDataType) {
+        case DataType.USERS:
+          if (!mcps.some(m => m.mcpId === 'user-mcp')) {
+            mcps.push({
+              mcpId: 'user-mcp',
+              type: 'hot',
+              priority: 1,
+              estimatedLatency: 50,
+              queryFragment: { type: 'user_query', filters: entities.filters }
+            });
+          }
+          break;
 
-      case DataType.STATS:
-      case DataType.METRICS:
-        mcps.push({
-          mcpId: 'stats-mcp',
-          type: 'hot',
-          priority: 1,
-          estimatedLatency: 100,
-          queryFragment: { type: 'stats_query', filters: entities.filters }
-        });
-        break;
+        case DataType.MESSAGES:
+        case DataType.CHATS:
+          if (!mcps.some(m => m.mcpId === 'chat-mcp')) {
+            mcps.push({
+              mcpId: 'chat-mcp',
+              type: temporal === TemporalContext.RECENT || temporal === TemporalContext.TODAY ? 'hot' : 'cold',
+              priority: 1,
+              estimatedLatency: temporal === TemporalContext.RECENT ? 30 : 200,
+              queryFragment: { type: 'message_query', filters: entities.filters }
+            });
+          }
+          break;
 
-      case DataType.LOGS:
-        mcps.push({
-          mcpId: 'logs-mcp',
-          type: temporal === TemporalContext.RECENT ? 'hot' : 'cold',
-          priority: 1,
-          estimatedLatency: temporal === TemporalContext.RECENT ? 100 : 500,
-          queryFragment: { type: 'log_query', filters: entities.filters }
-        });
-        break;
+        case DataType.STATS:
+        case DataType.METRICS:
+          if (!mcps.some(m => m.mcpId === 'stats-mcp')) {
+            mcps.push({
+              mcpId: 'stats-mcp',
+              type: 'hot',
+              priority: 1,
+              estimatedLatency: 100,
+              queryFragment: { type: 'stats_query', filters: entities.filters }
+            });
+          }
+          break;
+
+        case DataType.LOGS:
+          if (!mcps.some(m => m.mcpId === 'logs-mcp')) {
+            mcps.push({
+              mcpId: 'logs-mcp',
+              type: temporal === TemporalContext.RECENT ? 'hot' : 'cold',
+              priority: 1,
+              estimatedLatency: temporal === TemporalContext.RECENT ? 100 : 500,
+              queryFragment: { type: 'log_query', filters: entities.filters }
+            });
+          }
+          break;
+
+        case DataType.TOKENS:
+          // For TOKENS dataType, we want to add token-mcp with higher priority than the secondary token check below
+          if (!mcps.some(m => m.mcpId === 'token-mcp')) {
+            mcps.push({
+              mcpId: 'token-mcp',
+              type: 'hot',
+              priority: 1,
+              estimatedLatency: 25,
+              queryFragment: { type: 'token_validation', token: entities.filters.find(f => f.field === 'token')?.value }
+            });
+          }
+          break;
+      }
     }
 
-    // Add token MCP if token filters exist
-    if (entities.filters.some(f => f.field === 'token')) {
+    // Add token MCP if token filters exist (as secondary check)
+    if (entities.filters.some(f => f.field === 'token') && !mcps.some(m => m.mcpId === 'token-mcp')) {
       mcps.push({
         mcpId: 'token-mcp',
         type: 'hot',
@@ -1567,7 +1610,7 @@ export class NaturalLanguageParser {
       [TemporalContext.YESTERDAY, [/yesterday/, /last\s+day/]],
       [TemporalContext.LAST_WEEK, [/last\s+week/, /past\s+week/, /this\s+week/]],
       [TemporalContext.LAST_MONTH, [/last\s+month/, /past\s+month/, /this\s+month/]],
-      [TemporalContext.RECENT, [/recent/, /lately/, /now/, /current/]],
+      [TemporalContext.RECENT, [/recent/, /lately/, /now/, /current/, /last\s+\d+\s+hours?/, /past\s+\d+\s+hours?/]],
       [TemporalContext.HISTORICAL, [/historical/, /archive/, /old/, /past/]]
     ]);
 
