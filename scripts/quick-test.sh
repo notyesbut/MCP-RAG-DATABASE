@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 🚀 Quick test for Enterprise Multi-MCP Smart Database System
+# 🚀 1Quick test for Enterprise Multi-MCP Smart Database System
 # This script checks all major system functions
 
 set -e  # Stop on first error
@@ -12,7 +12,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Функция для красивого вывода
+# Function for formatted output
 print_step() {
     echo -e "${BLUE}$1${NC}"
 }
@@ -29,31 +29,31 @@ print_warning() {
     echo -e "${YELLOW}⚠️ $1${NC}"
 }
 
-# Проверяем что система запущена
+# Check that the system is running
 check_system() {
-    print_step "🔍 Проверяем что система запущена..."
+    print_step "🔍 Checking if the system is running..."
     
     if ! curl -s http://localhost:3000/api/v1/health > /dev/null; then
-        print_error "Система не запущена! Запустите: npm start"
+        print_error "System is not running! Start it with: npm start"
         exit 1
     fi
     
     health_status=$(curl -s http://localhost:3000/api/v1/health | jq -r '.status' 2>/dev/null)
     
     if [ "$health_status" = "healthy" ]; then
-        print_success "Система работает нормально"
+        print_success "System is running normally"
     else
-        print_error "Система работает, но статус: $health_status"
+        print_error "System is running, but status is: $health_status"
         exit 1
     fi
 }
 
-# Тест RAG₁ - Умная загрузка данных
+# Test RAG₁ - Smart Data Ingestion
 test_rag1_ingestion() {
-    print_step "🤖 Тестируем RAG₁ - Умную загрузку данных..."
+    print_step "🤖 Testing RAG₁ - Smart Data Ingestion..."
     
-    # Тест 1: Загрузка пользовательских данных
-    print_step "  📊 Загружаем пользовательские данные..."
+    # Test 1: Ingesting user data
+    print_step "  📊 Ingesting user data..."
     response=$(curl -s -X POST http://localhost:3000/api/v1/ingest \
         -H "Content-Type: application/json" \
         -d '{
@@ -77,24 +77,24 @@ test_rag1_ingestion() {
         confidence=$(echo $response | jq -r '.classification.confidence' 2>/dev/null)
         processing_time=$(echo $response | jq -r '.processingTime' 2>/dev/null)
         
-        print_success "Пользовательские данные загружены"
-        echo "    🎯 Классификация: $classification (уверенность: $confidence)"
-        echo "    ⏱️ Время обработки: ${processing_time}ms"
+        print_success "User data ingested successfully"
+        echo "    🎯 Classification: $classification (confidence: $confidence)"
+        echo "    ⏱️ Processing time: ${processing_time}ms"
     else
-        print_error "Ошибка загрузки пользовательских данных"
+        print_error "Error ingesting user data"
         echo "Response: $response"
         return 1
     fi
     
-    # Тест 2: Загрузка сообщений чата
-    print_step "  💬 Загружаем сообщение чата..."
+    # Test 2: Ingesting a chat message
+    print_step "  💬 Ingesting a chat message..."
     response=$(curl -s -X POST http://localhost:3000/api/v1/ingest \
         -H "Content-Type: application/json" \
         -d '{
             "data": {
                 "chat_message": {
                     "messageId": "test_msg_001",
-                    "content": "Тестовое сообщение для проверки системы",
+                    "content": "Test message to check the system",
                     "userId": "test_user_001",
                     "channelId": "general",
                     "timestamp": '$(date +%s000)'
@@ -108,22 +108,22 @@ test_rag1_ingestion() {
         classification=$(echo $response | jq -r '.classification.domain' 2>/dev/null)
         processing_time=$(echo $response | jq -r '.processingTime' 2>/dev/null)
         
-        print_success "Сообщение чата загружено"
-        echo "    🎯 Классификация: $classification"
-        echo "    ⏱️ Время обработки: ${processing_time}ms"
+        print_success "Chat message ingested successfully"
+        echo "    🎯 Classification: $classification"
+        echo "    ⏱️ Processing time: ${processing_time}ms"
     else
-        print_error "Ошибка загрузки сообщения чата"
+        print_error "Error ingesting chat message"
         echo "Response: $response"
         return 1
     fi
 }
 
-# Тест RAG₂ - Естественно-языковые запросы
+# Test RAG₂ - Natural Language Queries
 test_rag2_queries() {
-    print_step "💬 Тестируем RAG₂ - Естественно-языковые запросы..."
+    print_step "💬 Testing RAG₂ - Natural Language Queries..."
     
-    # Тест 1: Запрос пользователей
-    print_step "  👥 Запрашиваем пользователей..."
+    # Test 1: Querying users
+    print_step "  👥 Querying users..."
     response=$(curl -s -X POST http://localhost:3000/api/v1/query \
         -H "Content-Type: application/json" \
         -d '{
@@ -141,18 +141,18 @@ test_rag2_queries() {
         total_records=$(echo $response | jq -r '.data.metadata.totalRecords' 2>/dev/null)
         interpretation=$(echo $response | jq -r '.insights.interpretation' 2>/dev/null)
         
-        print_success "Запрос пользователей выполнен"
-        echo "    ⏱️ Время выполнения: ${execution_time}ms"
-        echo "    📊 Найдено записей: $total_records"
-        echo "    🧠 Интерпретация: $interpretation"
+        print_success "User query executed successfully"
+        echo "    ⏱️ Execution time: ${execution_time}ms"
+        echo "    📊 Records found: $total_records"
+        echo "    🧠 Interpretation: $interpretation"
     else
-        print_error "Ошибка запроса пользователей"
+        print_error "Error querying users"
         echo "Response: $response"
         return 1
     fi
     
-    # Тест 2: Запрос с токеном
-    print_step "  🔐 Запрашиваем данные с токеном..."
+    # Test 2: Query with a token
+    print_step "  🔐 Querying data with a token..."
     response=$(curl -s -X POST http://localhost:3000/api/v1/query \
         -H "Content-Type: application/json" \
         -d '{
@@ -165,17 +165,17 @@ test_rag2_queries() {
         execution_time=$(echo $response | jq -r '.duration' 2>/dev/null)
         sources=$(echo $response | jq -r '.data.metadata.sources[]' 2>/dev/null | tr '\n' ', ' | sed 's/,$//')
         
-        print_success "Запрос с токеном выполнен"
-        echo "    ⏱️ Время выполнения: ${execution_time}ms"
-        echo "    🎛️ Источники данных: $sources"
+        print_success "Query with token executed successfully"
+        echo "    ⏱️ Execution time: ${execution_time}ms"
+        echo "    🎛️ Data sources: $sources"
     else
-        print_error "Ошибка запроса с токеном"
+        print_error "Error querying with token"
         echo "Response: $response"
         return 1
     fi
     
-    # Тест 3: Статистические запросы
-    print_step "  📈 Запрашиваем статистику..."
+    # Test 3: Statistical queries
+    print_step "  📈 Querying statistics..."
     response=$(curl -s -X POST http://localhost:3000/api/v1/query \
         -H "Content-Type: application/json" \
         -d '{
@@ -187,48 +187,48 @@ test_rag2_queries() {
     if [ "$success" = "true" ]; then
         execution_time=$(echo $response | jq -r '.duration' 2>/dev/null)
         
-        print_success "Статистический запрос выполнен"
-        echo "    ⏱️ Время выполнения: ${execution_time}ms"
+        print_success "Statistical query executed successfully"
+        echo "    ⏱️ Execution time: ${execution_time}ms"
     else
-        print_error "Ошибка статистического запроса"
+        print_error "Error with statistical query"
         echo "Response: $response"
         return 1
     fi
 }
 
-# Тест производительности
+# Performance Test
 test_performance() {
-    print_step "⚡ Тестируем производительность..."
+    print_step "⚡ Testing performance..."
     
-    # Получаем текущие метрики
+    # Get current metrics
     metrics=$(curl -s http://localhost:3000/api/v1/metrics)
     
     memory_usage=$(echo $metrics | jq -r '.memoryUsage' 2>/dev/null)
     active_connections=$(echo $metrics | jq -r '.activeConnections' 2>/dev/null)
     cache_hit_ratio=$(echo $metrics | jq -r '.cacheHitRatio' 2>/dev/null)
     
-    print_success "Метрики производительности получены"
-    echo "    💾 Использование памяти: ${memory_usage}MB"
-    echo "    🔗 Активные соединения: $active_connections"
-    echo "    📊 Коэффициент попаданий в кеш: ${cache_hit_ratio}%"
+    print_success "Performance metrics retrieved successfully"
+    echo "    💾 Memory usage: ${memory_usage}MB"
+    echo "    🔗 Active connections: $active_connections"
+    echo "    📊 Cache hit ratio: ${cache_hit_ratio}%"
     
-    # Проверяем пороговые значения
+    # Check thresholds
     if [ "$memory_usage" -gt 1000 ]; then
-        print_warning "Высокое использование памяти: ${memory_usage}MB"
+        print_warning "High memory usage: ${memory_usage}MB"
     fi
     
     if [ "$active_connections" -gt 100 ]; then
-        print_warning "Много активных соединений: $active_connections"
+        print_warning "High number of active connections: $active_connections"
     fi
 }
 
-# Нагрузочный тест
+# Load Test
 load_test() {
-    print_step "🔥 Выполняем нагрузочный тест (10 параллельных запросов)..."
+    print_step "🔥 Running load test (10 concurrent requests)..."
     
     start_time=$(date +%s)
     
-    # Запускаем 10 параллельных запросов
+    # Start 10 concurrent requests
     for i in {1..10}; do
         {
             curl -s -X POST http://localhost:3000/api/v1/ingest \
@@ -245,13 +245,13 @@ load_test() {
         } &
     done
     
-    # Ждем завершения всех запросов
+    # Wait for all requests to complete
     wait
     
     end_time=$(date +%s)
     duration=$((end_time - start_time))
     
-    # Проверяем результаты
+    # Check results
     successful_requests=0
     for i in {1..10}; do
         if [ -f "/tmp/load_test_$i.json" ]; then
@@ -263,36 +263,36 @@ load_test() {
         fi
     done
     
-    print_success "Нагрузочный тест завершен"
-    echo "    ⏱️ Время выполнения: ${duration}s"
-    echo "    ✅ Успешных запросов: ${successful_requests}/10"
-    echo "    📊 Пропускная способность: $((successful_requests / duration)) запросов/сек"
+    print_success "Load test completed"
+    echo "    ⏱️ Execution time: ${duration}s"
+    echo "    ✅ Successful requests: ${successful_requests}/10"
+    echo "    📊 Throughput: $((successful_requests / duration)) req/s"
     
     if [ "$successful_requests" -lt 8 ]; then
-        print_warning "Низкий процент успешных запросов: ${successful_requests}/10"
+        print_warning "Low success rate: ${successful_requests}/10"
     fi
 }
 
-# Главная функция
+# Main function
 main() {
     echo -e "${BLUE}"
     echo "🚀 ========================================"
-    echo "   БЫСТРЫЙ ТЕСТ ENTERPRISE MCP DATABASE"
+    echo "   QUICK TEST ENTERPRISE MCP DATABASE"
     echo "======================================== ${NC}"
     echo ""
     
-    # Проверяем зависимости
+    # Check dependencies
     if ! command -v curl >/dev/null 2>&1; then
-        print_error "curl не установлен. Установите: sudo apt-get install curl"
+        print_error "curl is not installed. Please install it: sudo apt-get install curl"
         exit 1
     fi
     
     if ! command -v jq >/dev/null 2>&1; then
-        print_error "jq не установлен. Установите: sudo apt-get install jq"
+        print_error "jq is not installed. Please install it: sudo apt-get install jq"
         exit 1
     fi
     
-    # Выполняем тесты
+    # Run tests
     check_system
     echo ""
     
@@ -310,14 +310,14 @@ main() {
     
     echo -e "${GREEN}"
     echo "🎉 ========================================"
-    echo "     ВСЕ ТЕСТЫ УСПЕШНО ПРОЙДЕНЫ!"
+    echo "     ALL TESTS PASSED SUCCESSFULLY!"
     echo "======================================== ${NC}"
     echo ""
-    echo "📊 Система готова к использованию!"
-    echo "🌐 API доступен на: http://localhost:3000"
-    echo "📖 Документация: https://ragcore.xyz"
+    echo "📊 System is ready for use!"
+    echo "🌐 API available at: http://localhost:3000"
+    echo "📖 Documentation: https://ragcore.xyz"
     echo ""
 }
 
-# Запуск тестов
+# Run tests
 main "$@"
