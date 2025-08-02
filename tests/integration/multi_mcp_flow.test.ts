@@ -363,6 +363,12 @@ describe('Multi-MCP Flow Integration', () => {
         explanation: 'Retrieved user profiles and joined with message counts'
       });
 
+      const aggregatedResults = [
+        { user: TestDataGenerator.createTestUser(), messageCount: 25 },
+        { user: TestDataGenerator.createTestUser(), messageCount: 18 },
+        { user: TestDataGenerator.createTestUser(), messageCount: 31 }
+      ];
+
       systemOrchestrator.processDataFlow.mockResolvedValue({
         success: true,
         queryFlow: {
@@ -370,7 +376,7 @@ describe('Multi-MCP Flow Integration', () => {
           execution: { mcps: 2, steps: 3, totalResults: 3 },
           aggregation: { joined: true, queryTime: 125 }
         },
-        results: rag2System.aggregateResults.mock.results[0].value.data
+        results: aggregatedResults
       });
 
       const result = await systemOrchestrator.processDataFlow({ 
@@ -431,6 +437,14 @@ describe('Multi-MCP Flow Integration', () => {
         explanation: 'Compared current activity with 6-month historical data'
       });
 
+      const comparisonResults = {
+        comparison: {
+          current: { activeUsers: 1250, avgSessionTime: 28 },
+          historical: { activeUsers: 980, avgSessionTime: 22 },
+          growth: { users: '27.6%', sessionTime: '27.3%' }
+        }
+      };
+
       systemOrchestrator.processDataFlow.mockResolvedValue({
         success: true,
         queryFlow: {
@@ -438,7 +452,7 @@ describe('Multi-MCP Flow Integration', () => {
           execution: { hotMCPs: 1, coldMCPs: 1, crossTier: true },
           aggregation: { comparison: true, queryTime: 315 }
         },
-        results: rag2System.aggregateResults.mock.results[0].value.data
+        results: comparisonResults
       });
 
       const result = await systemOrchestrator.processDataFlow({ 
@@ -575,7 +589,13 @@ describe('Multi-MCP Flow Integration', () => {
 
   describe('Data Migration and Optimization', () => {
     test('should migrate data from hot to cold storage based on access patterns', async () => {
-      const migrationCandidate = MCPFixtures.getMigrationCandidates(50)[0];
+      // Create a migration candidate explicitly
+      const migrationCandidate = TestDataGenerator.createMCPMetadata({
+        id: 'user-mcp-hot-001',
+        domain: 'users',
+        type: 'hot',
+        accessFrequency: 25 // Low frequency for hot MCP
+      });
 
       mcpRegistry.migrateMCP.mockResolvedValue({
         success: true,
