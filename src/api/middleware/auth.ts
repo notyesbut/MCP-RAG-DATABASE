@@ -188,11 +188,44 @@ export const optionalAuth = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    await authMiddleware(req, res, () => {});
+    const requestId = req.headers['x-request-id'] as string || uuidv4();
+    
+    // Extract token from Authorization header
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      // No token provided, continue without authentication
+      return next();
+    }
+
+    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    
+    // Verify JWT token
+    const decoded = jwt.verify(token, config.auth.jwtSecret) as AuthTokenPayload;
+    
+    // Find user in database
+    const user = await findUserById(decoded.userId);
+    if (!user) {
+      // User not found, continue without authentication
+      return next();
+    }
+
+    // Update last login
+    user.lastLogin = new Date();
+    
+    // Attach user and token to request
+    (req as AuthenticatedRequest).user = user;
+    (req as AuthenticatedRequest).token = decoded;
+    
+    authLogger.info('Optional authentication successful', {
+      userId: user.id,
+      requestId,
+      method: req.method,
+      url: req.originalUrl
+    });
   } catch (error) {
-    // Silently continue without authentication
+    // Silently continue without authentication on any error
     authLogger.debug('Optional authentication failed', {
-      error: (error as Error).message,
+      error: error instanceof Error ? error.message : String(error),
       method: req.method,
       url: req.originalUrl
     });
