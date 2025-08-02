@@ -552,7 +552,8 @@ router.post('/validate',
           requestId,
         } as ApiResponse);
       }
-    }));
+    })
+  );
 
   /**
    * @swagger

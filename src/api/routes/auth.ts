@@ -422,7 +422,8 @@ router.get('/profile',
       timestamp: new Date().toISOString(),
       requestId
     } as ApiResponse);
-  }));
+  })
+);
 
 /**
  * @swagger
@@ -530,7 +531,8 @@ router.post('/change-password',
         requestId
       } as ApiResponse);
     }
-  }));
+  })
+);
 
 /**
  * @swagger
@@ -565,7 +567,8 @@ router.post('/logout',
       timestamp: new Date().toISOString(),
       requestId
     } as ApiResponse);
-  }));
+  })
+);
 
 /**
  * @swagger
@@ -625,6 +628,7 @@ router.post('/refresh',
         requestId
       } as ApiResponse);
     }
-  }));
+  })
+);
 
 export default router;

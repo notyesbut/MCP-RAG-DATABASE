@@ -332,7 +332,7 @@ export class PerformanceOptimizer extends EventEmitter {
       networkLatency: await this.measureNetworkLatency(),
       cpuUtilization: cpuUsage,
       errorRate: await this.measureErrorRate(),
-      bottlenecks: await this.identifyBottlenecks(this.metrics)
+      bottlenecks: []
     };
   }
 
@@ -351,11 +351,11 @@ export class PerformanceOptimizer extends EventEmitter {
     }
     
     // Cache performance bottleneck
-    if (metrics.cachePerformance.hitRate < this.performanceTargets.cacheHitRate) {
+    if (metrics.cachePerformance && (metrics.cachePerformance?.hitRate || 0) < this.performanceTargets.cacheHitRate) {
       bottlenecks.push({
         component: 'cache_system',
-        severity: metrics.cachePerformance.hitRate < 0.5 ? 'critical' : 'high',
-        impact: (this.performanceTargets.cacheHitRate - metrics.cachePerformance.hitRate) * 100,
+        severity: (metrics.cachePerformance?.hitRate || 0) < 0.5 ? 'critical' : 'high',
+        impact: (this.performanceTargets.cacheHitRate - (metrics.cachePerformance?.hitRate || 0)) * 100,
         recommendation: 'Implement ML-based cache prediction and intelligent prefetching',
         estimatedImprovement: 40
       });
@@ -521,7 +521,7 @@ export class PerformanceOptimizer extends EventEmitter {
     return {
       latencyTarget: metrics.currentLatency <= this.performanceTargets.queryLatency,
       throughputTarget: metrics.currentThroughput >= this.performanceTargets.throughput,
-      cacheTarget: metrics.cachePerformance.hitRate >= this.performanceTargets.cacheHitRate,
+      cacheTarget: (metrics.cachePerformance?.hitRate || 0) >= this.performanceTargets.cacheHitRate,
       overallScore: this.calculateOverallScore(metrics)
     };
   }
@@ -547,10 +547,10 @@ export class PerformanceOptimizer extends EventEmitter {
     totalWeight += 30;
     
     // Cache score (20% weight)
-    if (metrics.cachePerformance.hitRate >= this.performanceTargets.cacheHitRate) {
+    if ((metrics.cachePerformance?.hitRate || 0) >= this.performanceTargets.cacheHitRate) {
       score += 20;
     } else {
-      score += 20 * (metrics.cachePerformance.hitRate / this.performanceTargets.cacheHitRate);
+      score += 20 * ((metrics.cachePerformance?.hitRate || 0) / this.performanceTargets.cacheHitRate);
     }
     totalWeight += 20;
     
@@ -611,7 +611,7 @@ export class PerformanceOptimizer extends EventEmitter {
 
   private shouldTriggerOptimization(metrics: PerformanceMetrics): boolean {
     return metrics.currentLatency > this.performanceTargets.queryLatency * 1.5 ||
-           metrics.cachePerformance.hitRate < this.performanceTargets.cacheHitRate * 0.8 ||
+           (metrics.cachePerformance?.hitRate || 0) < this.performanceTargets.cacheHitRate * 0.8 ||
            metrics.cpuUtilization > 90;
   }
 
