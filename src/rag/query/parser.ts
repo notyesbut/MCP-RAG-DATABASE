@@ -215,7 +215,7 @@ class IntentClassificationEngine {
   
   async classifyIntent(text: string, context: ConversationContext): Promise<Array<{ type: QueryIntent; confidence: number; parameters?: Record<string, any> }>> {
     const features = this.extractFeatures(text, context);
-    const predictions = await this.predict(features);
+    const predictions = await this.predict(features, text);
     
     return predictions;
   }
@@ -252,7 +252,7 @@ class IntentClassificationEngine {
     return features;
   }
   
-  private async predict(features: number[]): Promise<Array<{ type: QueryIntent; confidence: number; parameters?: Record<string, any> }>> {
+  private async predict(features: number[], text: string): Promise<Array<{ type: QueryIntent; confidence: number; parameters?: Record<string, any> }>> {
     // Advanced ML-powered prediction with neural network simulation achieving 95%+ accuracy
     const predictions: Array<{ type: QueryIntent; confidence: number; parameters?: Record<string, any> }> = [];
     
@@ -268,23 +268,28 @@ class IntentClassificationEngine {
       });
     }
     
+    // Intent: COUNT (specific for counting operations - check first for explicit count queries)
+    const hasExplicitCount = text.toLowerCase().includes('count') || text.toLowerCase().includes('how many');
+    if (hasExplicitCount || (features[1] > 0.15 && features[3] > 0.15)) {
+      const countConfidence = hasExplicitCount ? 
+        Math.min(0.95, 0.85 + features[1] * 0.05 + features[3] * 0.05) : // Higher confidence for explicit count
+        Math.min(0.9, 0.65 + features[1] * 0.15 + features[3] * 0.15);
+      predictions.push({ 
+        type: QueryIntent.COUNT, 
+        confidence: countConfidence,
+        parameters: { entities: features[1], aggregation: features[3], explicitCount: hasExplicitCount }
+      });
+    }
+    
     // Intent: AGGREGATE (enhanced with statistical indicators)
+    // Lower confidence if explicit count is present to avoid conflict
     if (features[3] > 0.2) {
-      const aggConfidence = Math.min(0.92, 0.7 + features[3] * 0.25 + (features[1] > 0.3 ? 0.1 : 0));
+      const baseAggConfidence = Math.min(0.92, 0.7 + features[3] * 0.25 + (features[1] > 0.3 ? 0.1 : 0));
+      const aggConfidence = hasExplicitCount ? baseAggConfidence * 0.7 : baseAggConfidence; // Reduce if explicit count
       predictions.push({ 
         type: QueryIntent.AGGREGATE, 
         confidence: aggConfidence,
         parameters: { aggregationWords: features[3], entityCount: features[1] }
-      });
-    }
-    
-    // Intent: COUNT (specific for counting operations)
-    if (features[1] > 0.15 && features[3] > 0.15) {
-      const countConfidence = Math.min(0.9, 0.65 + features[1] * 0.15 + features[3] * 0.15);
-      predictions.push({ 
-        type: QueryIntent.COUNT, 
-        confidence: countConfidence,
-        parameters: { entities: features[1], aggregation: features[3] }
       });
     }
     
@@ -540,6 +545,7 @@ export class NaturalLanguageParser {
       [QueryIntent.RETRIEVE]: ['get', 'show', 'display', 'fetch', 'find'],
       [QueryIntent.FILTER]: ['where', 'with', 'having', 'matching'],
       [QueryIntent.AGGREGATE]: ['sum', 'total', 'average', 'group'],
+      [QueryIntent.COUNT]: ['count', 'how many', 'number of'],
       [QueryIntent.SEARCH]: ['search', 'find', 'look', 'contains'],
       [QueryIntent.ANALYZE]: ['analyze', 'insights', 'trends', 'patterns']
     };
@@ -1501,6 +1507,7 @@ export class NaturalLanguageParser {
         /(?:group\s+by|summarize|aggregate)\s+/
       ]],
       [QueryIntent.COUNT, [
+        /\bcount\b/,  // Explicit count word gets highest priority
         /(?:count|number\s+of|how\s+many)\s+/,
         /(?:total\s+number)\s+/
       ]],

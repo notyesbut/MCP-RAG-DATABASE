@@ -51,8 +51,8 @@ beforeEach(() => {
   // Clear all mocks
   jest.clearAllMocks();
   
-  // Reset modules
-  jest.resetModules();
+  // Don't reset modules as it breaks singleton instances like apiServer
+  // jest.resetModules();
 });
 
 // Custom matchers

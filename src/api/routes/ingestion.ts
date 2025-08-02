@@ -42,44 +42,44 @@ const upload = multer({
 export function createIngestionRoutes(rag1Controller: RAG1Controller): Router {
   const router = Router();
 
-// Ingestion-specific rate limiting
-const ingestionRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: {
-    success: false,
-    error: 'Too many ingestion requests, please try again later.',
-    code: 'INGESTION_RATE_LIMIT_EXCEEDED'
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+  // Ingestion-specific rate limiting
+  const ingestionRateLimit = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // limit each IP to 100 requests per windowMs
+    message: {
+      success: false,
+      error: 'Too many ingestion requests, please try again later.',
+      code: 'INGESTION_RATE_LIMIT_EXCEEDED'
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
 
-// Validation schemas
-const ingestionSchema = z.object({
-  data: z.any(),
-  metadata: z.object({
-    source: z.string().optional(),
-    type: z.string().optional(),
-    priority: z.enum(['low', 'medium', 'high', 'critical']).default('medium'),
-    tags: z.array(z.string()).optional(),
-    schema: z.record(z.string(), z.any()).optional()
-  }).optional(),
-  routing: z.object({
-    preferredMCPs: z.array(z.string()).optional(),
-    excludeMCPs: z.array(z.string()).optional(),
-    distributionStrategy: z.enum(['single', 'replicated', 'sharded']).default('single')
-  }).optional()
-});
+  // Validation schemas
+  const ingestionSchema = z.object({
+    data: z.any(),
+    metadata: z.object({
+      source: z.string().optional(),
+      type: z.string().optional(),
+      priority: z.enum(['low', 'medium', 'high', 'critical']).default('medium'),
+      tags: z.array(z.string()).optional(),
+      schema: z.record(z.string(), z.any()).optional()
+    }).optional(),
+    routing: z.object({
+      preferredMCPs: z.array(z.string()).optional(),
+      excludeMCPs: z.array(z.string()).optional(),
+      distributionStrategy: z.enum(['single', 'replicated', 'sharded']).default('single')
+    }).optional()
+  });
 
-const batchIngestionSchema = z.object({
-  items: z.array(ingestionSchema).min(1).max(100),
-  options: z.object({
-    parallelProcessing: z.boolean().default(true),
-    failFast: z.boolean().default(false),
-    generateReport: z.boolean().default(true)
-  }).optional()
-});
+  const batchIngestionSchema = z.object({
+    items: z.array(ingestionSchema).min(1).max(100),
+    options: z.object({
+      parallelProcessing: z.boolean().default(true),
+      failFast: z.boolean().default(false),
+      generateReport: z.boolean().default(true)
+    }).optional()
+  });
 
 /**
  * @swagger
@@ -610,6 +610,218 @@ router.post('/validate',
         return res.status(500).json({
           success: false,
           error: 'Failed to create streaming session',
+          message: (error as Error).message,
+          timestamp: new Date().toISOString(),
+          requestId
+        } as ApiResponse);
+      }
+    })
+  );
+
+  /**
+   * @swagger
+   * /api/v1/ingest/health:
+   *   get:
+   *     summary: RAG₁ ingestion system health check
+   *     tags: [Ingestion]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: System is healthy
+   */
+  router.get('/health',
+    async (req: Request, res: Response) => {
+      const requestId = req.headers['x-request-id'] as string || uuidv4();
+      
+      try {
+        const healthResponse = {
+          status: 'healthy',
+          capabilities: {
+            intelligentClassification: true,
+            dynamicRouting: true,
+            patternLearning: true,
+            batchProcessing: true,
+            streamIngestion: true
+          },
+          timestamp: new Date().toISOString(),
+          requestId
+        };
+        
+        return res.json({
+          ...healthResponse,
+          success: true,
+          message: 'RAG₁ ingestion system is healthy',
+          timestamp: new Date().toISOString(),
+          requestId
+        });
+        
+      } catch (error) {
+        logger.error('Health check failed', {
+          requestId,
+          error: (error as Error).message
+        });
+        
+        return res.status(503).json({
+          success: false,
+          error: 'Health check failed',
+          message: (error as Error).message,
+          timestamp: new Date().toISOString(),
+          requestId
+        } as ApiResponse);
+      }
+    }
+  );
+
+  /**
+   * @swagger
+   * /api/v1/ingest/status:
+   *   get:
+   *     summary: Get ingestion system status
+   *     tags: [Ingestion]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Status retrieved successfully
+   */
+  router.get('/status',
+    requirePermission(['ingest:read']),
+    asyncAuthHandler(async (req: AuthenticatedRequest, res: Response) => {
+      const requestId = req.headers['x-request-id'] as string || uuidv4();
+      
+      try {
+        // Get pattern insights
+        const patterns = rag1Controller.getPatternInsights();
+        
+        // Get system recommendations
+        const recommendations = await rag1Controller.getSystemRecommendations();
+        
+        const statusResponse = {
+          status: 'active',
+          system: {
+            metrics: {
+              totalIngested: 1234, // Mock value
+              averageProcessingTime: 45.2, // Mock value
+              classificationAccuracy: 0.95, // Mock value
+              routingSuccessRate: 0.98, // Mock value
+              successRate: 0.99, // Mock value
+              errorRate: 0.01 // Mock value
+            },
+            patterns: {
+              total: patterns.length,
+              insights: patterns
+            },
+            recommendations: {
+              ...recommendations,
+              summary: `${recommendations.mcpOptimizations.length + recommendations.topologyRecommendations.length + recommendations.performanceImprovements.length + recommendations.securityEnhancements.length} total recommendations`
+            }
+          },
+          timestamp: new Date().toISOString()
+        };
+        
+        return res.json({
+          ...statusResponse,
+          success: true,
+          message: 'Ingestion system status retrieved',
+          timestamp: new Date().toISOString(),
+          requestId
+        });
+        
+      } catch (error) {
+        logger.error('Failed to get system status', {
+          requestId,
+          error: (error as Error).message
+        });
+        
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to retrieve status',
+          message: (error as Error).message,
+          timestamp: new Date().toISOString(),
+          requestId
+        } as ApiResponse);
+      }
+    })
+  );
+
+  /**
+   * @swagger
+   * /api/v1/ingest/patterns:
+   *   get:
+   *     summary: Get pattern insights from ingested data
+   *     tags: [Ingestion]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Pattern insights retrieved
+   */
+  router.get('/patterns',
+    requirePermission(['ingest:read']),
+    asyncAuthHandler(async (req: AuthenticatedRequest, res: Response) => {
+      const requestId = req.headers['x-request-id'] as string || uuidv4();
+      
+      try {
+        const patterns = rag1Controller.getPatternInsights();
+        
+        return res.json({
+          success: true,
+          data: {
+            patterns,
+            total: patterns.length,
+            insights: {
+              learningEnabled: true,
+              patternTypes: ['domain', 'dataStructure', 'usage', 'performance']
+            }
+          },
+          timestamp: new Date().toISOString(),
+          requestId
+        } as ApiResponse);
+        
+      } catch (error) {
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to retrieve patterns',
+          message: (error as Error).message,
+          timestamp: new Date().toISOString(),
+          requestId
+        } as ApiResponse);
+      }
+    })
+  );
+
+  /**
+   * @swagger
+   * /api/v1/ingest/topology/recommendations:
+   *   get:
+   *     summary: Get topology optimization recommendations
+   *     tags: [Ingestion]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Recommendations retrieved
+   */
+  router.get('/topology/recommendations',
+    requirePermission(['admin']),
+    asyncAuthHandler(async (req: AuthenticatedRequest, res: Response) => {
+      const requestId = req.headers['x-request-id'] as string || uuidv4();
+      
+      try {
+        const topology = await rag1Controller.getTopologyRecommendations();
+        
+        return res.json({
+          success: true,
+          data: topology,
+          timestamp: new Date().toISOString(),
+          requestId
+        } as ApiResponse);
+        
+      } catch (error) {
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to get topology recommendations',
           message: (error as Error).message,
           timestamp: new Date().toISOString(),
           requestId

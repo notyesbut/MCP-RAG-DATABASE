@@ -70,6 +70,7 @@ export class ResultAggregator {
         primary: aggregatedData,
         metadata
       },
+      sources: metadata.sources, // Add sources at top level for backward compatibility
       insights,
       errors: errors.length > 0 ? errors : [],
       caching,

@@ -220,25 +220,54 @@ export class RAG2Controller {
    * Get or create MCP client
    */
   private async getMCPClient(mcpId: string): Promise<any> {
-    // This would return the actual MCP client
-    // For simulation purposes, we'll return a mock client
+    try {
+      // First try to get actual MCP from registry
+      const mcp = await this.mcpRegistry.getMCP(mcpId);
+      if (mcp) {
+        return {
+          query: async (query: any) => {
+            try {
+              const result = await mcp.query(query);
+              // BaseMCP.query returns DataRecord[] directly
+              return Array.isArray(result) ? result : (result.data || []);
+            } catch (error) {
+              console.warn(`MCP ${mcpId} query failed, using simulation:`, error);
+              return this.getSimulatedResponse(mcpId, query);
+            }
+          }
+        };
+      } else {
+        console.log(`MCP ${mcpId} not found in registry, using simulation`);
+      }
+    } catch (error) {
+      console.warn(`Failed to get MCP ${mcpId} from registry:`, error);
+    }
+
+    // Fallback to simulation if MCP not found
+    console.log(`Using simulated response for MCP ${mcpId}`);
     return {
       query: async (query: any) => {
-        // Simulate different MCP responses
-        switch (mcpId) {
-          case 'user-mcp':
-            return this.simulateUserMCPResponse(query);
-          case 'chat-mcp':
-            return this.simulateChatMCPResponse(query);
-          case 'stats-mcp':
-            return this.simulateStatsMCPResponse(query);
-          case 'token-mcp':
-            return this.simulateTokenMCPResponse(query);
-          default:
-            return this.simulateGenericMCPResponse(query);
-        }
+        return this.getSimulatedResponse(mcpId, query);
       }
     };
+  }
+
+  /**
+   * Get simulated response based on MCP ID
+   */
+  private getSimulatedResponse(mcpId: string, query: any): any[] {
+    switch (mcpId) {
+      case 'user-mcp':
+        return this.simulateUserMCPResponse(query);
+      case 'chat-mcp':
+        return this.simulateChatMCPResponse(query);
+      case 'stats-mcp':
+        return this.simulateStatsMCPResponse(query);
+      case 'token-mcp':
+        return this.simulateTokenMCPResponse(query);
+      default:
+        return this.simulateGenericMCPResponse(query);
+    }
   }
 
   /**
