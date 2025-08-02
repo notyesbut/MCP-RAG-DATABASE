@@ -34,9 +34,11 @@ export class ResultAggregator {
     mcpResults: MCPResult[],
     strategy: string,
     executionId: string,
-    originalQuery: string
+    originalQuery: string,
+    interpretedQuery?: any,
+    queryStartTime?: number
   ): Promise<QueryResult> {
-    const startTime = Date.now();
+    const startTime = queryStartTime || Date.now();
     
     // Filter successful results
     const successfulResults = mcpResults.filter(result => result.success);
@@ -49,7 +51,7 @@ export class ResultAggregator {
     const metadata = this.calculateAggregationMetadata(successfulResults, strategy);
     
     // Generate insights
-    const insights = this.generateInsights(successfulResults, strategy, originalQuery);
+    const insights = this.generateInsights(successfulResults, strategy, originalQuery, interpretedQuery);
     
     // Handle errors from failed MCPs
     const errors = this.handleErrors(failedResults);
@@ -105,6 +107,10 @@ export class ResultAggregator {
         return this.statisticalSummaryResults(results);
       
       case AggregationStrategyType.CROSS_REFERENCE:
+        return this.crossReferenceResults(results);
+      
+      case 'intersection':
+        // Map intersection to cross_reference
         return this.crossReferenceResults(results);
       
       default:
@@ -326,7 +332,8 @@ export class ResultAggregator {
   private generateInsights(
     results: MCPResult[], 
     strategy: string, 
-    originalQuery: string
+    originalQuery: string,
+    interpretedQuery?: any
   ): QueryResult['insights'] {
     const totalTime = results.reduce((sum, r) => sum + r.metadata.queryTime, 0);
     const cacheHits = results.filter(r => r.metadata.cacheHit).length;
@@ -361,8 +368,17 @@ export class ResultAggregator {
     // Learning patterns
     const learnedPatterns = this.identifyLearnedPatterns(originalQuery, results);
     
+    // Generate interpretation that includes intent information
+    let interpretation = `Aggregated ${results.length} MCP results using ${strategy} strategy`;
+    
+    // Include intent information if available
+    if (interpretedQuery && interpretedQuery.intents && interpretedQuery.intents.length > 0) {
+      const primaryIntent = interpretedQuery.intents[0].type;
+      interpretation = `Query intent: ${primaryIntent}. ${interpretation}`;
+    }
+
     return {
-      interpretation: `Aggregated ${results.length} MCP results using ${strategy} strategy`,
+      interpretation,
       performanceNotes,
       suggestions
     };

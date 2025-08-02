@@ -303,13 +303,17 @@ class IntentClassificationEngine {
       });
     }
     
-    // Intent: SEARCH (enhanced with content analysis)
-    const searchBaseConfidence = 0.55 + features[0] * 0.15;
+    // Intent: SEARCH (enhanced with content analysis and explicit search detection)
+    const hasExplicitSearch = text.toLowerCase().includes('search') || text.toLowerCase().includes('find') && text.toLowerCase().includes('containing');
+    const searchBaseConfidence = hasExplicitSearch ? 0.85 : 0.55 + features[0] * 0.15;
     const searchBoost = features[4] > 0.2 ? 0.1 : 0;
+    const searchConfidence = hasExplicitSearch ? 
+      Math.min(0.95, searchBaseConfidence + searchBoost) : 
+      Math.min(0.85, searchBaseConfidence + searchBoost);
     predictions.push({ 
       type: QueryIntent.SEARCH, 
-      confidence: Math.min(0.85, searchBaseConfidence + searchBoost),
-      parameters: { queryLength: features[0], actionWords: features[4] }
+      confidence: searchConfidence,
+      parameters: { queryLength: features[0], actionWords: features[4], explicitSearch: hasExplicitSearch }
     });
     
     // Intent: ANALYZE (for analytical queries)
@@ -393,6 +397,20 @@ export class NaturalLanguageParser {
   async parse(query: { raw: string, context?: any }): Promise<InterpretedQuery> {
     const text = query.raw.toLowerCase().trim();
     const sessionId = query.context?.sessionId || 'default';
+    
+    // Validate query before processing
+    if (!text || text.length === 0) {
+      throw new Error('Empty query provided');
+    }
+    
+    // Check for malformed queries (gibberish or no recognizable words)
+    const recognizableWords = ['get', 'show', 'find', 'search', 'count', 'user', 'users', 'message', 'messages', 'stats', 'logs', 'data', 'token', 'activity', 'analyze', 'recent', 'today', 'yesterday', 'all', 'file', 'files', 'admin', 'error', 'from', 'to', 'with', 'in', 'and', 'or', 'of', 'for', 'containing', 'contains'];
+    const words = text.split(/\s+/).filter(word => word.length > 2);
+    const recognizedWords = words.filter(word => recognizableWords.includes(word) || /\d+/.test(word) || /@/.test(word));
+    
+    if (words.length > 0 && recognizedWords.length === 0) {
+      throw new Error(`Unable to understand query: "${query.raw}". Query contains no recognizable terms.`);
+    }
     
     // Load conversation context for improved understanding
     const context = this.loadConversationContext(sessionId, query.context);
