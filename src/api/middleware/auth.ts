@@ -82,6 +82,7 @@ export const authMiddleware = async (
     // Attach user and token to request
     (req as AuthenticatedRequest).user = user;
     (req as AuthenticatedRequest).token = token;
+    (req as AuthenticatedRequest).tokenPayload = decoded;
 
     authLogger.info('User authenticated', {
       userId: user.id,
@@ -214,7 +215,8 @@ export const optionalAuth = async (
     
     // Attach user and token to request
     (req as AuthenticatedRequest).user = user;
-    (req as AuthenticatedRequest).token = decoded;
+    (req as AuthenticatedRequest).token = token;
+    (req as AuthenticatedRequest).tokenPayload = decoded;
     
     authLogger.info('Optional authentication successful', {
       userId: user.id,

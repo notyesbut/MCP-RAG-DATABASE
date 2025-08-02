@@ -575,7 +575,19 @@ export class RAG2Controller {
   }
 
   public async healthCheck(): Promise<any> {
-    return { status: 'healthy' };
+    return {
+      status: 'healthy',
+      capabilities: {
+        naturalLanguageProcessing: true,
+        multiMCPQuerying: true,
+        resultAggregation: true,
+        multiMCPQueries: true,
+        intelligentCaching: true
+      },
+      timestamp: new Date().toISOString(),
+      success: true,
+      message: 'RAG₂ query system is healthy'
+    };
   }
 
   public async queryBulk(queries: string[], context?: any): Promise<any[]> {

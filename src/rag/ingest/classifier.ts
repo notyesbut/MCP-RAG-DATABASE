@@ -132,7 +132,9 @@ export class DataClassifier extends EventEmitter {
     };
 
     this.initializeEnhancedModels();
-    this.startRealTimeLearning();
+    if (this.config.enableRealTimeLearning) {
+      this.startRealTimeLearning();
+    }
   }
 
   /**
@@ -1211,13 +1213,49 @@ export class DataClassifier extends EventEmitter {
     return affinityScores;
   }
 
+  private realtimeLearningInterval?: NodeJS.Timeout;
+  private isDestroyed = false;
+
   private startRealTimeLearning(): void {
     if (!this.config.enableRealTimeLearning) return;
 
     // Periodically retrain models with new data
-    setInterval(() => {
-      this.performRealTimeLearning();
+    this.realtimeLearningInterval = setInterval(() => {
+      if (!this.isDestroyed) {
+        this.performRealTimeLearning();
+      }
     }, this.config.retrainingInterval);
+  }
+
+  /**
+   * Cleanup resources and stop all timers
+   */
+  public destroy(): void {
+    this.isDestroyed = true;
+    
+    if (this.realtimeLearningInterval) {
+      clearInterval(this.realtimeLearningInterval);
+      this.realtimeLearningInterval = undefined;
+    }
+
+    // Dispose TensorFlow models
+    if (this.model) {
+      this.model.dispose();
+    }
+    
+    for (const [, model] of this.ensembleModels) {
+      model.dispose();
+    }
+    
+    if (this.mcpAffinityModel) {
+      this.mcpAffinityModel.dispose();
+    }
+
+    // Clear data structures
+    this.classificationHistory.clear();
+    this.emergingPatterns.clear();
+    this.realTimeLearningBuffer.length = 0;
+    this.trainingData.length = 0;
   }
 
   private async performRealTimeLearning(): Promise<void> {

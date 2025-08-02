@@ -809,6 +809,9 @@ export class RAG1Controller extends EventEmitter {
     this.processingQueue.clear();
     this.patternInsights.clear();
     
+    // Call destroy to clean up resources
+    this.destroy();
+    
     this.emit('shutdown', {
       timestamp: Date.now(),
       finalMetrics: this.metrics
@@ -830,5 +833,34 @@ export class RAG1Controller extends EventEmitter {
   public async createStream(options: any): Promise<any> {
     const sessionId = uuidv4();
     return { id: sessionId, batchSize: options?.batchSize, timeout: options?.timeout };
+  }
+
+  /**
+   * Clean up resources and stop all processing
+   */
+  public destroy(): void {
+    try {
+      // Clean up classifier
+      if (this.classifier && typeof this.classifier.destroy === 'function') {
+        this.classifier.destroy();
+      }
+
+      // Clean up router
+      if (this.router) {
+        // Router is an EventEmitter, remove all listeners
+        this.router.removeAllListeners();
+      }
+
+      // Clear processing queue
+      this.processingQueue.clear();
+      this.patternInsights.clear();
+
+      // Remove event listeners
+      this.removeAllListeners();
+
+      this.isInitialized = false;
+    } catch (error) {
+      console.warn('Error during RAG1Controller cleanup:', error);
+    }
   }
 }

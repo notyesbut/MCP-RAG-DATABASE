@@ -592,15 +592,38 @@ class ApiServer {
         });
     }
 
-    public stop(): Promise<void> {
-        return new Promise((resolve) => {
-            if (this.server) {
-                this.server.close(() => {
-                    logger.info('Server stopped');
+    public async stop(): Promise<void> {
+        return new Promise(async (resolve) => {
+            try {
+                // Shutdown core systems first
+                if (this.rag1Controller) {
+                    logger.info('🔄 Shutting down RAG₁ Controller...');
+                    await this.rag1Controller.shutdown();
+                }
+
+                if (this.mcpRegistry) {
+                    logger.info('🔄 Shutting down MCP Registry...');
+                    await this.mcpRegistry.shutdown();
+                }
+
+                // Close WebSocket connections
+                if (this.io) {
+                    this.io.close();
+                    logger.info('WebSocket server closed');
+                }
+
+                // Close HTTP server
+                if (this.server) {
+                    this.server.close(() => {
+                        logger.info('HTTP server stopped');
+                        resolve();
+                    });
+                } else {
                     resolve();
-                });
-            } else {
-                resolve();
+                }
+            } catch (error) {
+                logger.error('Error during server stop:', error);
+                resolve(); // Still resolve to prevent hanging
             }
         });
     }

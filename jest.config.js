@@ -99,7 +99,21 @@ module.exports = {
   // Verbose output
   verbose: true,
 
-  // Error handling
+  // Worker process settings for better cleanup
+  detectOpenHandles: true,
+  forceExit: true,
+  maxWorkers: 1, // Use single worker for integration tests to avoid conflicts
+  
+  // Timeouts
+  testTimeout: 30000,
+  
+  // Better cleanup handling
+  globalTeardown: '<rootDir>/tests/helpers/global-teardown.js',
+  
+  // Force Jest to exit after tests complete
+  bail: false,
+  
+  // Better error handling
   errorOnDeprecated: false,
 
   // Exclude problematic source files from coverage

@@ -67,6 +67,8 @@ export class PerformanceOptimizer extends EventEmitter {
   private queryPipeline!: ParallelQueryPipeline;
   private memoryManager!: AdvancedMemoryManager;
   private networkOptimizer!: NetworkOptimizer;
+  private monitoringInterval?: NodeJS.Timeout;
+  private isDestroyed = false;
   
   constructor(targets: Partial<PerformanceTarget> = {}) {
     super();
@@ -289,15 +291,49 @@ export class PerformanceOptimizer extends EventEmitter {
 
   private startPerformanceMonitoring(): void {
     // High-frequency monitoring (every 100ms)
-    setInterval(async () => {
-      this.metrics = await this.collectRealTimeMetrics();
-      this.emit('metrics-updated', this.metrics);
+    this.monitoringInterval = setInterval(async () => {
+      if (this.isDestroyed) return;
       
-      // Auto-trigger optimization if performance degrades
-      if (this.shouldTriggerOptimization(this.metrics)) {
-        await this.optimizeSystem();
+      try {
+        this.metrics = await this.collectRealTimeMetrics();
+        this.emit('metrics-updated', this.metrics);
+        
+        // Auto-trigger optimization if performance degrades
+        if (this.shouldTriggerOptimization(this.metrics)) {
+          await this.optimizeSystem();
+        }
+      } catch (error) {
+        if (!this.isDestroyed) {
+          console.error('Performance monitoring error:', error);
+        }
       }
     }, 100);
+  }
+
+  /**
+   * Cleanup resources and stop all monitoring
+   */
+  public destroy(): void {
+    this.isDestroyed = true;
+
+    // Clear monitoring interval
+    if (this.monitoringInterval) {
+      clearInterval(this.monitoringInterval);
+      this.monitoringInterval = undefined;
+    }
+
+    // Terminate worker threads
+    for (const worker of this.optimizationWorkers) {
+      try {
+        worker.terminate();
+      } catch (error) {
+        // Ignore errors during cleanup
+      }
+    }
+    this.optimizationWorkers.length = 0;
+
+    // Clear event listeners
+    this.removeAllListeners();
   }
 
   private setupOptimizationStrategies(): void {

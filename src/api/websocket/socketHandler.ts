@@ -277,9 +277,41 @@ export function broadcastSystemNotification(notification: any): void {
 
 // Store IO instance for broadcasting
 let ioInstance: SocketIOServer | null = null;
+let cleanupInterval: NodeJS.Timeout | null = null;
 
 function getIOInstance(): SocketIOServer | null {
   return ioInstance;
+}
+
+/**
+ * Cleanup function to stop all WebSocket operations
+ */
+export function cleanupWebSocket(): void {
+  // Clear cleanup interval
+  if (cleanupInterval) {
+    clearInterval(cleanupInterval);
+    cleanupInterval = null;
+  }
+
+  // Disconnect all active connections
+  if (ioInstance) {
+    for (const [socketId, connection] of activeConnections.entries()) {
+      try {
+        connection.socket.disconnect(true);
+      } catch (error) {
+        // Ignore errors during cleanup
+      }
+    }
+    
+    // Close the server
+    ioInstance.close();
+    ioInstance = null;
+  }
+
+  // Clear all data structures
+  activeConnections.clear();
+  activeSubscriptions.clear();
+  rateLimits.clear();
 }
 
 /**
@@ -420,7 +452,7 @@ export function setupWebSocket(io: SocketIOServer): void {
   });
 
   // Periodic cleanup of inactive connections
-  setInterval(() => {
+  cleanupInterval = setInterval(() => {
     const now = Date.now();
     const INACTIVE_TIMEOUT = 30 * 60 * 1000; // 30 minutes
 

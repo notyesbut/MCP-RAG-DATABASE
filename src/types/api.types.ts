@@ -43,6 +43,8 @@ export interface AuthenticatedRequest extends Request {
   user?: User;
   /** The JWT token extracted from the request. */
   token?: string;
+  /** The decoded JWT payload. */
+  tokenPayload?: AuthTokenPayload;
 }
 
 /**
